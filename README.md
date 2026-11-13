@@ -105,15 +105,20 @@ Auxline/
   - `WS_EX_TOOLWINDOW`: hide from Alt+Tab and taskbar
   - `WS_EX_NOACTIVATE`: don't steal focus when clicked
   - `WS_EX_TOPMOST`: stay above the taskbar
-- [x] Re-assert topmost (`SetWindowPos(HWND_TOPMOST)`) on every foreground change (`SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`), since the taskbar can cover the widget
+- [x] Keep the widget above the taskbar (the taskbar raises itself on clicks, Start, snipping overlay):
+  - Owned by the taskbar (`GWLP_HWNDPARENT` = `Shell_TrayWnd`), so Windows raises it together with the taskbar
+  - Re-assert topmost 300 ms after each foreground change (`EVENT_SYSTEM_FOREGROUND`), for shell raises that ignore ownership
+  - Re-attach on `TaskbarCreated` (Explorer restart)
+- [x] Widget sizes to its content (max 240 DIP), so empty space stays clickable for the taskbar
 - [x] Reposition on display/DPI changes (`WM_DISPLAYCHANGE`, `WM_DPICHANGED`)
 - [x] Text color follows the taskbar theme (`SystemUsesLightTheme`)
 
 ### Phase 4 - Flyout
-- [ ] Open the flyout above the widget on click
-- [ ] Large cover art, track info, controls, volume slider
-- [ ] Close on focus loss or Esc
-- [ ] Optional: acrylic/mica background (`DwmSetWindowAttribute`)
+- [x] Open the flyout above the widget on click
+- [x] Large cover art, track info, controls, volume slider
+- [x] Disable previous/next when the player doesn't support them (`PlaybackInfo.Controls`)
+- [x] Close on focus loss or Esc
+- [x] Optional: acrylic background (`DwmSetWindowAttribute`), solid fallback before Windows 11 22H2
 - [ ] Optional: progress bar + seek via `TryChangePlaybackPositionAsync()`
   - Subscribe to `TimelinePropertiesChanged` for position updates
   - Note: Spotify updates timeline info irregularly; interpolate position locally between updates
