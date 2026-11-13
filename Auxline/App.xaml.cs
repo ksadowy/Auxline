@@ -1,14 +1,15 @@
 using System.Windows;
-using TaskbarPlayer.Services;
-using TaskbarPlayer.ViewModels;
-using TaskbarPlayer.Views;
+using Auxline.Services;
+using Auxline.ViewModels;
+using Auxline.Views;
 
-namespace TaskbarPlayer;
+namespace Auxline;
 
 public partial class App : Application
 {
     private MediaService? _media;
     private VolumeService? _volume;
+    private TaskbarService? _taskbar;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -21,7 +22,7 @@ public partial class App : Application
         {
             MessageBox.Show(
                 $"Could not access Windows media controls.\n\n{ex.Message}",
-                "Taskbar Player",
+                "Auxline",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown(1);
@@ -29,7 +30,15 @@ public partial class App : Application
         }
 
         _volume = new VolumeService();
-        new DebugWindow { DataContext = new DebugViewModel(_media, _volume, Dispatcher) }.Show();
+        _taskbar = new TaskbarService();
+        var player = new PlayerViewModel(_media, _volume, Dispatcher);
+
+        // Closing the debug window exits the app until the tray icon (Phase 5) exists.
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
+        MainWindow = new DebugWindow { DataContext = player };
+        MainWindow.Show();
+        new WidgetWindow(_taskbar) { DataContext = player }.Show();
+
         await _media.RefreshAsync();
     }
 
@@ -37,6 +46,7 @@ public partial class App : Application
     {
         _media?.Dispose();
         _volume?.Dispose();
+        _taskbar?.Dispose();
         base.OnExit(e);
     }
 }

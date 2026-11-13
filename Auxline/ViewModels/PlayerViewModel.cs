@@ -3,12 +3,13 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TaskbarPlayer.Models;
-using TaskbarPlayer.Services;
+using Auxline.Models;
+using Auxline.Services;
 
-namespace TaskbarPlayer.ViewModels;
+namespace Auxline.ViewModels;
 
-public sealed partial class DebugViewModel : ObservableObject
+/// <summary>Now-playing state + commands, shared by the widget and debug windows.</summary>
+public sealed partial class PlayerViewModel : ObservableObject
 {
     private readonly MediaService _media;
     private readonly VolumeService _volumeService;
@@ -44,7 +45,7 @@ public sealed partial class DebugViewModel : ObservableObject
     [ObservableProperty]
     private string _volumeStatus = "";
 
-    public DebugViewModel(MediaService media, VolumeService volumeService, Dispatcher dispatcher)
+    public PlayerViewModel(MediaService media, VolumeService volumeService, Dispatcher dispatcher)
     {
         _media = media;
         _volumeService = volumeService;

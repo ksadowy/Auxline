@@ -1,4 +1,4 @@
-# Taskbar Player
+# Auxline
 
 A lightweight, customizable media widget for the Windows 11 taskbar. It shows the current track (cover art, title, artist) in the empty area on the left side of the taskbar. Clicking it opens a flyout with playback controls and volume.
 
@@ -30,7 +30,7 @@ Works with Spotify and any other app that reports to Windows media controls (bro
 | Media info & controls | `Windows.Media.Control` (Global System Media Transport Controls, GSMTC) |
 | Per-app volume | Windows Core Audio API via [NAudio](https://github.com/naudio/NAudio) |
 | Window placement | Win32 interop (`user32.dll`, `shell32.dll`) |
-| Settings | JSON file in `%AppData%\TaskbarPlayer\` |
+| Settings | JSON file in `%AppData%\Auxline\` |
 
 **Target resource usage:** ~30–60 MB RAM, a few MB VRAM, near-zero CPU when idle (event-driven, no polling).
 
@@ -54,15 +54,16 @@ The project must target a Windows SDK version to access WinRT APIs:
 ## Architecture
 
 ```
-TaskbarPlayer/
+Auxline/
 ├── App.xaml / App.xaml.cs        # Startup, single instance, tray icon
 ├── Models/
 │   └── MediaTrack.cs             # Immutable snapshot of the current track
 ├── ViewModels/
-│   └── DebugViewModel.cs         # Phase 1 debug window state + commands
+│   └── PlayerViewModel.cs        # Now-playing state + commands, shared by all windows
 ├── Services/
 │   ├── MediaService.cs           # GSMTC: current session, track info, controls
 │   ├── VolumeService.cs          # Core Audio: per-app volume
+│   ├── AppIdentity.cs            # Maps GSMTC app ID → process name
 │   ├── TaskbarService.cs         # Taskbar position, fullscreen detection
 │   └── SettingsService.cs        # Load/save JSON settings
 ├── Views/
@@ -80,32 +81,33 @@ TaskbarPlayer/
 ## Roadmap
 
 ### Phase 1 - Media core
-- [ ] Get `GlobalSystemMediaTransportControlsSessionManager` via `RequestAsync()`
-- [ ] Read current session and pick Spotify (`SourceAppUserModelId` contains `Spotify`) or fall back to the current session
-- [ ] Read title, artist, album via `TryGetMediaPropertiesAsync()`
-- [ ] Load the cover from `Thumbnail` (`OpenReadAsync()` → `BitmapImage`)
-- [ ] Subscribe to events instead of polling:
+- [x] Get `GlobalSystemMediaTransportControlsSessionManager` via `RequestAsync()`
+- [x] Pick the session: playing Spotify (`SourceAppUserModelId` contains `Spotify`) → any playing session → Windows' current session
+- [x] Read title, artist, album via `TryGetMediaPropertiesAsync()`
+- [x] Load the cover from `Thumbnail` (`OpenReadAsync()` → `BitmapImage`)
+- [x] Subscribe to events instead of polling:
   - `SessionsChanged`, `CurrentSessionChanged`
-  - `MediaPropertiesChanged`, `PlaybackInfoChanged`, `TimelinePropertiesChanged`
-- [ ] Controls: `TryTogglePlayPauseAsync()`, `TrySkipNextAsync()`, `TrySkipPreviousAsync()`
-- [ ] Test with a simple debug window
+  - `MediaPropertiesChanged`, `PlaybackInfoChanged`
+- [x] Controls: `TryTogglePlayPauseAsync()`, `TrySkipNextAsync()`, `TrySkipPreviousAsync()`
+- [x] Test with a simple debug window
 
 ### Phase 2 - Volume
-- [ ] Enumerate audio sessions with NAudio (`MMDeviceEnumerator` → `AudioSessionManager`)
-- [ ] Find the Spotify session by process name
-- [ ] Get/set volume via `SimpleAudioVolume`
-- [ ] Handle Spotify restarting (session disappears and reappears)
+- [x] Enumerate audio sessions with NAudio (`MMDeviceEnumerator` → `AudioSessionManager`)
+- [x] Find the current source's audio session by process name (derived from `SourceAppUserModelId`: resolve the exe via `shell:AppsFolder`, which handles hashed IDs of Firefox-based browsers; fall back to parsing the ID, e.g. `Spotify.exe` → `Spotify`)
+- [x] Get/set volume via `SimpleAudioVolume`
+- [x] Handle Spotify restarting (session disappears and reappears)
 
 ### Phase 3 - Taskbar widget
-- [ ] Borderless, transparent window (`WindowStyle=None`, `AllowsTransparency=True`)
-- [ ] Get taskbar rect via `SHAppBarMessage(ABM_GETTASKBARPOS)`
-- [ ] Position the widget on the left side of the taskbar (configurable offset, since the Widgets button may occupy this area)
-- [ ] Extended window styles:
+- [x] Borderless, transparent window (`WindowStyle=None`, `AllowsTransparency=True`)
+- [x] Get taskbar rect via `SHAppBarMessage(ABM_GETTASKBARPOS)`
+- [x] Position the widget on the left side of the taskbar (offset is a constant for now; becomes a setting in Phase 5)
+- [x] Extended window styles:
   - `WS_EX_TOOLWINDOW`: hide from Alt+Tab and taskbar
   - `WS_EX_NOACTIVATE`: don't steal focus when clicked
   - `WS_EX_TOPMOST`: stay above the taskbar
-- [ ] Re-assert topmost (`SetWindowPos(HWND_TOPMOST)`) when the taskbar gets focus, since it can cover the widget
-- [ ] Reposition on display/DPI changes (`WM_DISPLAYCHANGE`, `WM_DPICHANGED`)
+- [x] Re-assert topmost (`SetWindowPos(HWND_TOPMOST)`) on every foreground change (`SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`), since the taskbar can cover the widget
+- [x] Reposition on display/DPI changes (`WM_DISPLAYCHANGE`, `WM_DPICHANGED`)
+- [x] Text color follows the taskbar theme (`SystemUsesLightTheme`)
 
 ### Phase 4 - Flyout
 - [ ] Open the flyout above the widget on click
@@ -113,6 +115,7 @@ TaskbarPlayer/
 - [ ] Close on focus loss or Esc
 - [ ] Optional: acrylic/mica background (`DwmSetWindowAttribute`)
 - [ ] Optional: progress bar + seek via `TryChangePlaybackPositionAsync()`
+  - Subscribe to `TimelinePropertiesChanged` for position updates
   - Note: Spotify updates timeline info irregularly; interpolate position locally between updates
 
 ### Phase 5 - Polish
@@ -150,9 +153,8 @@ TaskbarPlayer/
 
 ```bash
 git clone <repo-url>
-cd TaskbarPlayer
-dotnet restore
-dotnet run
+cd Auxline
+dotnet run --project Auxline
 ```
 
 ---

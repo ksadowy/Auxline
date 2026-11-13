@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
 
-namespace TaskbarPlayer.Services;
+namespace Auxline.Services;
 
 /// <summary>
 /// Per-app volume via Core Audio sessions on the default playback device.
