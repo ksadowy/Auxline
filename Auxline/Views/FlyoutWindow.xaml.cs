@@ -4,12 +4,13 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using Auxline.Interop;
 using Auxline.Services;
+using Auxline.ViewModels;
 using static Auxline.Interop.NativeMethods;
 
 namespace Auxline.Views;
 
 /// <summary>
-/// Popup above the widget with cover art, controls and volume. Reused: hidden, never closed.
+/// Popup above the widget with cover art, progress, controls and volume. Reused: hidden, never closed.
 /// Closes when it loses focus (click anywhere else) or on Esc.
 /// </summary>
 public partial class FlyoutWindow : Window
@@ -17,6 +18,9 @@ public partial class FlyoutWindow : Window
     private const double GapAboveAnchorDip = 12;
 
     private readonly bool _isLightTheme;
+    private Rect _anchor;
+
+    private PlayerViewModel Player => (PlayerViewModel)DataContext;
 
     public FlyoutWindow(TaskbarService taskbar)
     {
@@ -27,6 +31,12 @@ public partial class FlyoutWindow : Window
         SourceInitialized += OnSourceInitialized;
         Deactivated += (_, _) => Hide();
         KeyDown += OnKeyDown;
+        IsVisibleChanged += (_, _) => Player.SetProgressShown(IsVisible);
+        // Content can grow while open (e.g. the progress bar appears); keep the bottom edge above the widget.
+        SizeChanged += (_, e) =>
+        {
+            if (IsVisible && e.HeightChanged) PlaceAboveAnchor(ActualHeight);
+        };
     }
 
     /// <param name="anchor">Widget bounds in DIPs; the flyout opens above it, left-aligned.</param>
@@ -39,13 +49,28 @@ public partial class FlyoutWindow : Window
         }
 
         // Measure before showing so the flyout appears at its final position, without a jump.
+        _anchor = anchor;
         var content = (FrameworkElement)Content;
         content.Measure(new Size(Width, double.PositiveInfinity));
-        Left = anchor.Left;
-        Top = anchor.Top - content.DesiredSize.Height - GapAboveAnchorDip;
+        PlaceAboveAnchor(content.DesiredSize.Height);
 
         Show();
         Activate();
+    }
+
+    private void PlaceAboveAnchor(double height)
+    {
+        Left = _anchor.Left;
+        Top = _anchor.Top - height - GapAboveAnchorDip;
+    }
+
+    private void OnProgressPressed(object sender, MouseButtonEventArgs e) => Player.IsSeeking = true;
+
+    /// <summary>Seek once on release (click or end of drag), not on every value change while dragging.</summary>
+    private void OnProgressReleased(object sender, MouseButtonEventArgs e)
+    {
+        Player.IsSeeking = false;
+        Player.SeekCommand.Execute(null);
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)

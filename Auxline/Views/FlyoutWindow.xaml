@@ -22,6 +22,8 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
         <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Window}}" />
             <Setter Property="Background" Value="Transparent" />
@@ -74,7 +76,23 @@
             </StackPanel>
         </Grid>
 
-        <StackPanel Margin="0,12,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
+        <Grid Margin="0,12,0,0" Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="{Binding PositionText}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
+            <Slider Grid.Column="1" Margin="8,0" VerticalAlignment="Center" Focusable="False"
+                    Minimum="0" Maximum="{Binding DurationSeconds}" Value="{Binding PositionSeconds}"
+                    IsMoveToPointEnabled="True" IsEnabled="{Binding CanSeek}"
+                    PreviewMouseLeftButtonDown="OnProgressPressed"
+                    PreviewMouseLeftButtonUp="OnProgressReleased" />
+            <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
+        </Grid>
+
+        <StackPanel Margin="0,8,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
             <Button Style="{StaticResource IconButton}" Command="{Binding SkipPreviousCommand}"
                     ToolTip="Previous" Content="&#xE892;" />
             <Button Style="{StaticResource IconButton}" Command="{Binding TogglePlayPauseCommand}" ToolTip="Play / Pause">

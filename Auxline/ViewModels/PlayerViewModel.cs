@@ -11,9 +11,14 @@ namespace Auxline.ViewModels;
 /// <summary>Now-playing state + commands, shared by the widget, flyout and debug windows.</summary>
 public sealed partial class PlayerViewModel : ObservableObject
 {
+    private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(500);
+
     private readonly MediaService _media;
     private readonly VolumeService _volumeService;
+    private readonly DispatcherTimer _progressTimer;
     private string? _processName;
+    private MediaTimeline? _timeline;
+    private bool _isProgressShown;
 
     [ObservableProperty]
     private string _source = "";
@@ -56,12 +61,47 @@ public sealed partial class PlayerViewModel : ObservableObject
     [ObservableProperty]
     private string _volumeStatus = "";
 
+    [ObservableProperty]
+    private bool _hasTimeline;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SeekCommand))]
+    private bool _canSeek;
+
+    [ObservableProperty]
+    private double _positionSeconds;
+
+    [ObservableProperty]
+    private double _durationSeconds;
+
+    [ObservableProperty]
+    private string _positionText = "";
+
+    [ObservableProperty]
+    private string _durationText = "";
+
+    /// <summary>True while the user presses/drags the progress slider, so timer updates don't fight the thumb.</summary>
+    public bool IsSeeking { get; set; }
+
     public PlayerViewModel(MediaService media, VolumeService volumeService, Dispatcher dispatcher)
     {
         _media = media;
         _volumeService = volumeService;
+        _progressTimer = new DispatcherTimer(DispatcherPriority.Background, dispatcher) { Interval = ProgressInterval };
+        _progressTimer.Tick += (_, _) => ShowPosition();
+
         Show(null);
         _media.TrackChanged += (_, track) => dispatcher.InvokeAsync(() => Show(track));
+        _media.TimelineChanged += (_, timeline) => dispatcher.InvokeAsync(() => ShowTimeline(timeline));
+    }
+
+    /// <summary>The progress bar only ticks while a view shows it, so a hidden flyout costs no CPU.</summary>
+    public void SetProgressShown(bool isShown)
+    {
+        _isProgressShown = isShown;
+        IsSeeking = false;
+        ShowPosition();
+        UpdateProgressTimer();
     }
 
     [RelayCommand]
@@ -73,10 +113,24 @@ public sealed partial class PlayerViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSkipPrevious))]
     private Task SkipPrevious() => RunAsync(_media.SkipPreviousAsync, "Previous");
 
-    private async Task RunAsync(Func<Task<bool>> command, string commandName)
+    [RelayCommand(CanExecute = nameof(CanSeek))]
+    private async Task Seek()
+    {
+        var target = TimeSpan.FromSeconds(PositionSeconds);
+        var isAccepted = await RunAsync(() => _media.SeekAsync(target), "Seek");
+
+        // The player confirms via TimelineChanged later; until then extrapolate from the requested position.
+        if (isAccepted && _timeline is not null)
+        {
+            _timeline = _timeline with { Position = target, LastUpdated = DateTimeOffset.Now };
+        }
+    }
+
+    private async Task<bool> RunAsync(Func<Task<bool>> command, string commandName)
     {
         var isAccepted = await command();
         Status = isAccepted ? "" : $"{commandName} rejected by player (or no session).";
+        return isAccepted;
     }
 
     private void Show(MediaTrack? track)
@@ -92,7 +146,34 @@ public sealed partial class PlayerViewModel : ObservableObject
         Cover = track?.Thumbnail is { } bytes ? ToBitmap(bytes) : null;
         _processName = track is null ? null : AppIdentity.ToProcessName(track.SourceAppId);
         ShowVolume();
+        ShowTimeline(track?.Timeline);
     }
+
+    private void ShowTimeline(MediaTimeline? timeline)
+    {
+        _timeline = timeline;
+        HasTimeline = timeline is not null;
+        CanSeek = timeline?.CanSeek ?? false;
+        DurationSeconds = timeline?.Duration.TotalSeconds ?? 0;
+        DurationText = timeline is null ? "" : FormatTime(timeline.Duration);
+        ShowPosition();
+        UpdateProgressTimer();
+    }
+
+    private void ShowPosition()
+    {
+        if (IsSeeking || _timeline is null) return;
+        PositionSeconds = _timeline.EstimatePosition(DateTimeOffset.Now, IsPlaying).TotalSeconds;
+    }
+
+    /// <summary>Also follows the thumb while the user drags it.</summary>
+    partial void OnPositionSecondsChanged(double value) => PositionText = FormatTime(TimeSpan.FromSeconds(value));
+
+    private void UpdateProgressTimer() =>
+        _progressTimer.IsEnabled = _isProgressShown && IsPlaying && _timeline is not null;
+
+    private static string FormatTime(TimeSpan time) =>
+        time.ToString(time.TotalHours >= 1 ? @"h\:mm\:ss" : @"m\:ss");
 
     /// <summary>Re-read on every track/playback event, which also picks up changes made in the Windows mixer.</summary>
     private void ShowVolume()

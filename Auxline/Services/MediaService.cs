@@ -25,6 +25,12 @@ public sealed class MediaService : IDisposable
     /// <summary>Raised on a background thread. Null means nothing is playing.</summary>
     public event EventHandler<MediaTrack?>? TrackChanged;
 
+    /// <summary>
+    /// Raised on a background thread when only the position/duration changed (seek, track progress report).
+    /// Kept separate from <see cref="TrackChanged"/> so it doesn't re-read cover art. Null means no timeline.
+    /// </summary>
+    public event EventHandler<MediaTimeline?>? TimelineChanged;
+
     private MediaService(SessionManager manager)
     {
         _manager = manager;
@@ -61,6 +67,10 @@ public sealed class MediaService : IDisposable
 
     public Task<bool> SkipPreviousAsync() => SendAsync(s => s.TrySkipPreviousAsync());
 
+    /// <param name="position">Relative to the track start.</param>
+    public Task<bool> SeekAsync(TimeSpan position) =>
+        SendAsync(s => s.TryChangePlaybackPositionAsync((s.GetTimelineProperties().StartTime + position).Ticks));
+
     public void Dispose()
     {
         _manager.SessionsChanged -= OnSessionsChanged;
@@ -92,6 +102,7 @@ public sealed class MediaService : IDisposable
         {
             old.MediaPropertiesChanged -= OnMediaPropertiesChanged;
             old.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+            old.TimelinePropertiesChanged -= OnTimelinePropertiesChanged;
         }
 
         _session = session;
@@ -100,6 +111,7 @@ public sealed class MediaService : IDisposable
         {
             session.MediaPropertiesChanged += OnMediaPropertiesChanged;
             session.PlaybackInfoChanged += OnPlaybackInfoChanged;
+            session.TimelinePropertiesChanged += OnTimelinePropertiesChanged;
         }
     }
 
@@ -115,7 +127,24 @@ public sealed class MediaService : IDisposable
             IsPlaying: IsPlaying(session),
             CanSkipNext: controls.IsNextEnabled,
             CanSkipPrevious: controls.IsPreviousEnabled,
+            Timeline: ReadTimeline(session),
             Thumbnail: await ReadThumbnailAsync(properties.Thumbnail));
+    }
+
+    /// <returns>Null for live streams or players that report no duration.</returns>
+    private static MediaTimeline? ReadTimeline(Session session)
+    {
+        var timeline = session.GetTimelineProperties();
+        var duration = timeline.EndTime - timeline.StartTime;
+        if (duration <= TimeSpan.Zero) return null;
+
+        var playback = session.GetPlaybackInfo();
+        return new MediaTimeline(
+            Position: timeline.Position - timeline.StartTime,
+            Duration: duration,
+            LastUpdated: timeline.LastUpdatedTime,
+            PlaybackRate: playback.PlaybackRate ?? 1,
+            CanSeek: playback.Controls.IsPlaybackPositionEnabled);
     }
 
     /// <summary>Cover art is optional: on failure the track is shown without it.</summary>
@@ -158,4 +187,29 @@ public sealed class MediaService : IDisposable
     private void OnMediaPropertiesChanged(Session sender, MediaPropertiesChangedEventArgs args) => _ = RefreshAsync();
 
     private void OnPlaybackInfoChanged(Session sender, PlaybackInfoChangedEventArgs args) => _ = RefreshAsync();
+
+    private void OnTimelinePropertiesChanged(Session sender, TimelinePropertiesChangedEventArgs args) =>
+        _ = PublishTimelineAsync(sender);
+
+    /// <summary>
+    /// Shares the refresh lock: a refresh in flight (e.g. still loading cover art) carries an older timeline,
+    /// so this update must be published after it, not overwritten by it.
+    /// </summary>
+    private async Task PublishTimelineAsync(Session session)
+    {
+        await _refreshLock.WaitAsync();
+        try
+        {
+            TimelineChanged?.Invoke(this, ReadTimeline(session));
+        }
+        catch (COMException ex)
+        {
+            // Session closed mid-read; SessionsChanged follows.
+            Trace.TraceWarning($"Timeline read failed: {ex.Message}");
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
+    }
 }
