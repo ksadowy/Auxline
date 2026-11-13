@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace TaskbarPlayer.Services;
+namespace Auxline.Services;
 
 /// <summary>
 /// Bridges GSMTC app IDs and Core Audio process names.

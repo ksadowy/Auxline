@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace TaskbarPlayer.Views;
+namespace Auxline.Views;
 
 public partial class DebugWindow : Window
 {

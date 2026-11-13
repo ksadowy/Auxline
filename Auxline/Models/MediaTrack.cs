@@ -1,4 +1,4 @@
-namespace TaskbarPlayer.Models;
+namespace Auxline.Models;
 
 public sealed record MediaTrack(
     string SourceAppId,

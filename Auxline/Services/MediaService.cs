@@ -4,11 +4,11 @@ using System.Runtime.InteropServices;
 using Windows.Foundation;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
-using TaskbarPlayer.Models;
+using Auxline.Models;
 using Session = Windows.Media.Control.GlobalSystemMediaTransportControlsSession;
 using SessionManager = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager;
 
-namespace TaskbarPlayer.Services;
+namespace Auxline.Services;
 
 /// <summary>
 /// Tracks the most relevant media session via GSMTC and exposes playback controls.
