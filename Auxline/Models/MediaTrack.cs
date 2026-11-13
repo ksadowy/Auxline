@@ -8,4 +8,5 @@ public sealed record MediaTrack(
     bool IsPlaying,
     bool CanSkipNext,
     bool CanSkipPrevious,
+    MediaTimeline? Timeline,
     byte[]? Thumbnail);

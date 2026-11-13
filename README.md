@@ -119,9 +119,10 @@ Auxline/
 - [x] Disable previous/next when the player doesn't support them (`PlaybackInfo.Controls`)
 - [x] Close on focus loss or Esc
 - [x] Optional: acrylic background (`DwmSetWindowAttribute`), solid fallback before Windows 11 22H2
-- [ ] Optional: progress bar + seek via `TryChangePlaybackPositionAsync()`
+- [x] Optional: progress bar + seek via `TryChangePlaybackPositionAsync()`
   - Subscribe to `TimelinePropertiesChanged` for position updates
-  - Note: Spotify updates timeline info irregularly; interpolate position locally between updates
+  - Note: Spotify updates timeline info irregularly (~4.5 s); interpolate position locally between updates
+  - Ticks only while the flyout is open and playing; seeks once on release (click or drag)
 
 ### Phase 5 - Polish
 - [ ] Hide when a fullscreen app is running (`SHQueryUserNotificationState`, or compare the foreground window bounds with the monitor bounds)
@@ -150,7 +151,23 @@ Auxline/
 - **No official taskbar embedding in Windows 11.** Deskbands were removed, so the widget is a separate topmost window placed over the taskbar. Embedding it directly into Explorer (as Windhawk mods do) would require DLL injection in C++ and is out of scope for now.
 - **Z-order fights.** The taskbar can draw above the widget after it is clicked; topmost has to be re-applied.
 - **Spotify timeline data** is not continuous, so the progress bar has to be interpolated.
+- **Firefox-based browsers** (Firefox, Zen, LibreWolf…) report the timeline only on pause/resume and clear it on their own, so without help the progress bar appears only after the first pause of each track. Chromium-based browsers report it continuously. Fix: the optional userscript in [Extras](#extras).
+- **Opera / Opera GX** likely won't get volume control: their Start menu entry points to `launcher.exe`, while audio plays from `opera.exe` (untested).
 - **Multiple media sessions.** When a browser and Spotify both play, decide which one to show (prefer Spotify, or the most recently active one).
+
+---
+
+## Extras
+
+### Live progress bar in Firefox-based browsers
+
+[`extras/firefox-position-state.user.js`](extras/firefox-position-state.user.js) makes Firefox, Zen, LibreWolf etc. report a live timeline to Windows, so the progress bar works from the first second of a video.
+
+1. Install a userscript manager, e.g. [Violentmonkey](https://addons.mozilla.org/firefox/addon/violentmonkey/).
+2. Create a new script and paste the file's contents (or open the raw file URL to install it).
+3. Restart the browser or reload media tabs.
+
+How it works: it calls `navigator.mediaSession.setPositionState()` when media starts, pauses, seeks or changes speed, plus every 5 s while playing, because Firefox clears the system timeline on its own. It sends nothing anywhere and needs no permissions (`@grant none`). Not needed for Chromium-based browsers.
 
 ---
 
