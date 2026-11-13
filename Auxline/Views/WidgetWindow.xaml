@@ -16,8 +16,9 @@
         Topmost="True"
         WindowStartupLocation="Manual"
         Left="0" Top="0"
-        Width="240" Height="48"
-        FontFamily="Segoe UI Variable Text, Segoe UI">
+        SizeToContent="Width" MaxWidth="240" Height="48"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        Cursor="Hand">
     <!-- Background #01000000: fully transparent pixels don't receive clicks, 1/255 alpha does. -->
     <Grid Margin="6,0">
         <Grid.ColumnDefinitions>

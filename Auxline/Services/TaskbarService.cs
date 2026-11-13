@@ -7,7 +7,7 @@ using static Auxline.Interop.NativeMethods;
 namespace Auxline.Services;
 
 /// <summary>
-/// Taskbar geometry and theme, plus a foreground-window hook used to keep the widget above the taskbar.
+/// Primary taskbar: window handle, geometry and theme, plus a foreground-window hook.
 /// Create on the UI thread: the WinEvent hook delivers callbacks through that thread's message loop.
 /// </summary>
 public sealed class TaskbarService : IDisposable
@@ -30,9 +30,12 @@ public sealed class TaskbarService : IDisposable
 
         if (_foregroundHook == IntPtr.Zero)
         {
-            Trace.TraceWarning("Foreground hook failed; the taskbar may cover the widget after it is clicked.");
+            Trace.TraceWarning("Foreground hook failed; the taskbar may occasionally cover the widget.");
         }
     }
+
+    /// <returns>Primary taskbar window, or IntPtr.Zero when Explorer isn't running.</returns>
+    public IntPtr FindTaskbarWindow() => FindWindow(TaskbarWindowClass, null);
 
     /// <returns>Primary taskbar bounds in physical pixels, or null when Explorer reports no taskbar.</returns>
     public Int32Rect? GetTaskbarBounds()

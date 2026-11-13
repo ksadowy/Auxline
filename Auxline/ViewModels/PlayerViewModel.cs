@@ -8,7 +8,7 @@ using Auxline.Services;
 
 namespace Auxline.ViewModels;
 
-/// <summary>Now-playing state + commands, shared by the widget and debug windows.</summary>
+/// <summary>Now-playing state + commands, shared by the widget, flyout and debug windows.</summary>
 public sealed partial class PlayerViewModel : ObservableObject
 {
     private readonly MediaService _media;
@@ -29,6 +29,17 @@ public sealed partial class PlayerViewModel : ObservableObject
 
     [ObservableProperty]
     private string _playback = "";
+
+    [ObservableProperty]
+    private bool _isPlaying;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SkipNextCommand))]
+    private bool _canSkipNext;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SkipPreviousCommand))]
+    private bool _canSkipPrevious;
 
     [ObservableProperty]
     private BitmapImage? _cover;
@@ -56,10 +67,10 @@ public sealed partial class PlayerViewModel : ObservableObject
     [RelayCommand]
     private Task TogglePlayPause() => RunAsync(_media.TogglePlayPauseAsync, "Play/pause");
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanSkipNext))]
     private Task SkipNext() => RunAsync(_media.SkipNextAsync, "Next");
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanSkipPrevious))]
     private Task SkipPrevious() => RunAsync(_media.SkipPreviousAsync, "Previous");
 
     private async Task RunAsync(Func<Task<bool>> command, string commandName)
@@ -75,6 +86,9 @@ public sealed partial class PlayerViewModel : ObservableObject
         Artist = track?.Artist ?? "";
         Album = track?.Album ?? "";
         Playback = track is null ? "" : track.IsPlaying ? "Playing" : "Paused";
+        IsPlaying = track?.IsPlaying ?? false;
+        CanSkipNext = track?.CanSkipNext ?? false;
+        CanSkipPrevious = track?.CanSkipPrevious ?? false;
         Cover = track?.Thumbnail is { } bytes ? ToBitmap(bytes) : null;
         _processName = track is null ? null : AppIdentity.ToProcessName(track.SourceAppId);
         ShowVolume();

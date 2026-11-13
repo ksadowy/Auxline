@@ -106,12 +106,15 @@ public sealed class MediaService : IDisposable
     private static async Task<MediaTrack> ReadTrackAsync(Session session)
     {
         var properties = await session.TryGetMediaPropertiesAsync();
+        var controls = session.GetPlaybackInfo().Controls;
         return new MediaTrack(
             SourceAppId: session.SourceAppUserModelId,
             Title: properties.Title,
             Artist: properties.Artist,
             Album: properties.AlbumTitle,
             IsPlaying: IsPlaying(session),
+            CanSkipNext: controls.IsNextEnabled,
+            CanSkipPrevious: controls.IsPreviousEnabled,
             Thumbnail: await ReadThumbnailAsync(properties.Thumbnail));
     }
 

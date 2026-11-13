@@ -6,4 +6,6 @@ public sealed record MediaTrack(
     string Artist,
     string Album,
     bool IsPlaying,
+    bool CanSkipNext,
+    bool CanSkipPrevious,
     byte[]? Thumbnail);

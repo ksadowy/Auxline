@@ -37,7 +37,10 @@ public partial class App : Application
         ShutdownMode = ShutdownMode.OnMainWindowClose;
         MainWindow = new DebugWindow { DataContext = player };
         MainWindow.Show();
-        new WidgetWindow(_taskbar) { DataContext = player }.Show();
+        var flyout = new FlyoutWindow(_taskbar) { DataContext = player };
+        var widget = new WidgetWindow(_taskbar) { DataContext = player };
+        widget.Clicked += (_, _) => flyout.Toggle(widget.Bounds);
+        widget.Show();
 
         await _media.RefreshAsync();
     }
