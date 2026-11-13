@@ -11,6 +11,8 @@ namespace TaskbarPlayer.ViewModels;
 public sealed partial class DebugViewModel : ObservableObject
 {
     private readonly MediaService _media;
+    private readonly VolumeService _volumeService;
+    private string? _processName;
 
     [ObservableProperty]
     private string _source = "";
@@ -33,9 +35,19 @@ public sealed partial class DebugViewModel : ObservableObject
     [ObservableProperty]
     private string _status = "";
 
-    public DebugViewModel(MediaService media, Dispatcher dispatcher)
+    [ObservableProperty]
+    private double _volumePercent;
+
+    [ObservableProperty]
+    private bool _hasAudioSession;
+
+    [ObservableProperty]
+    private string _volumeStatus = "";
+
+    public DebugViewModel(MediaService media, VolumeService volumeService, Dispatcher dispatcher)
     {
         _media = media;
+        _volumeService = volumeService;
         Show(null);
         _media.TrackChanged += (_, track) => dispatcher.InvokeAsync(() => Show(track));
     }
@@ -63,6 +75,25 @@ public sealed partial class DebugViewModel : ObservableObject
         Album = track?.Album ?? "";
         Playback = track is null ? "" : track.IsPlaying ? "Playing" : "Paused";
         Cover = track?.Thumbnail is { } bytes ? ToBitmap(bytes) : null;
+        _processName = track is null ? null : AppIdentity.ToProcessName(track.SourceAppId);
+        ShowVolume();
+    }
+
+    /// <summary>Re-read on every track/playback event, which also picks up changes made in the Windows mixer.</summary>
+    private void ShowVolume()
+    {
+        var volume = _processName is null ? null : _volumeService.GetVolume(_processName);
+        HasAudioSession = volume is not null;
+        VolumePercent = (volume ?? 0) * 100;
+        VolumeStatus = _processName is null || HasAudioSession
+            ? ""
+            : $"No audio session for process '{_processName}'.";
+    }
+
+    partial void OnVolumePercentChanged(double value)
+    {
+        if (!HasAudioSession || _processName is null) return;
+        _volumeService.SetVolume(_processName, (float)(value / 100));
     }
 
     private static BitmapImage? ToBitmap(byte[] bytes)
