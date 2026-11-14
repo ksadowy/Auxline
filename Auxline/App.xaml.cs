@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Windows;
+using Auxline.Diagnostics;
 using Auxline.Services;
 using Auxline.ViewModels;
 using Auxline.Views;
@@ -28,6 +30,9 @@ public partial class App : Application
             return;
         }
 
+        // After the single-instance check, so a second launch doesn't write to the running instance's log.
+        AppDiagnostics.Start(this);
+
         // Runs in the background; only "Exit" in the tray menu ends the app.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
@@ -37,29 +42,20 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Could not access Windows media controls.\n\n{ex.Message}",
-                "Auxline",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-            Shutdown(1);
+            ReportStartupFailure("Could not access Windows media controls.", ex);
             return;
         }
 
-        _volume = new VolumeService();
-        _taskbar = new TaskbarService();
-        var player = new PlayerViewModel(_media, _volume, Dispatcher);
-
-        var flyout = new FlyoutWindow(_taskbar) { DataContext = player };
-        var widget = new WidgetWindow(_taskbar) { DataContext = player };
-        widget.Clicked += (_, _) => flyout.Toggle(widget.Bounds);
-        widget.Show();
-
-        var executablePath = Environment.ProcessPath
-            ?? throw new InvalidOperationException("Cannot determine the Auxline executable path.");
-        _tray = new AppTrayIcon(new AutostartService(executablePath), _taskbar.UsesLightTheme());
-        _tray.DebugWindowRequested += (_, _) => ShowDebugWindow(player);
-        _tray.ExitRequested += (_, _) => Shutdown();
+        try
+        {
+            StartUi(_media);
+        }
+        catch (Exception ex)
+        {
+            // A half-started app (e.g. widget but no tray icon) would have no way to exit, so fail visibly.
+            ReportStartupFailure("Auxline could not start.", ex);
+            return;
+        }
 
         await _media.RefreshAsync();
     }
@@ -71,7 +67,37 @@ public partial class App : Application
         _volume?.Dispose();
         _taskbar?.Dispose();
         _singleInstance?.Dispose();
+        AppDiagnostics.Stop();
         base.OnExit(e);
+    }
+
+    private void StartUi(MediaService media)
+    {
+        _volume = new VolumeService();
+        _taskbar = new TaskbarService();
+        var player = new PlayerViewModel(media, _volume, Dispatcher);
+
+        var flyout = new FlyoutWindow(_taskbar) { DataContext = player };
+        var widget = new WidgetWindow(_taskbar) { DataContext = player };
+        widget.Clicked += (_, _) => flyout.Toggle(widget.Bounds);
+        widget.Show();
+
+        var executablePath = Environment.ProcessPath
+            ?? throw new InvalidOperationException("Cannot determine the Auxline executable path.");
+        _tray = new AppTrayIcon(new AutostartService(executablePath), _taskbar.UsesLightTheme());
+        _tray.DebugWindowRequested += (_, _) => ShowDebugWindow(player);
+        _tray.ExitRequested += (_, _) => Shutdown();
+    }
+
+    private void ReportStartupFailure(string summary, Exception ex)
+    {
+        Trace.TraceError($"{summary} {ex}");
+        MessageBox.Show(
+            $"{summary}\n\n{ex.Message}\n\nDetails are in the log: {AppDiagnostics.LogDirectory}",
+            "Auxline",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+        Shutdown(1);
     }
 
     private void ShowDebugWindow(PlayerViewModel player)
