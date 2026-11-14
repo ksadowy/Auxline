@@ -16,7 +16,19 @@ internal static class NativeMethods
     public const uint SWP_NOMOVE = 0x0002;
     public const uint SWP_NOACTIVATE = 0x0010;
 
+    public const int WS_POPUP = unchecked((int)0x80000000);
+
     public const int WM_DISPLAYCHANGE = 0x007E;
+    public const uint WM_NULL = 0x0000;
+
+    public const uint MF_STRING = 0x0000;
+    public const uint MF_CHECKED = 0x0008;
+    public const uint MF_SEPARATOR = 0x0800;
+    public const uint TPM_RIGHTBUTTON = 0x0002;
+    public const uint TPM_RIGHTALIGN = 0x0008;
+    public const uint TPM_BOTTOMALIGN = 0x0020;
+    public const uint TPM_NONOTIFY = 0x0080;
+    public const uint TPM_RETURNCMD = 0x0100;
 
     public const uint ABM_GETTASKBARPOS = 0x00000005;
 
@@ -38,6 +50,13 @@ internal static class NativeMethods
         public int Top;
         public int Right;
         public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int X;
+        public int Y;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -79,6 +98,33 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr CreatePopupMenu();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool AppendMenu(IntPtr hMenu, uint uFlags, UIntPtr uIDNewItem, string? lpNewItem);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool DestroyMenu(IntPtr hMenu);
+
+    /// <returns>With TPM_RETURNCMD: the chosen item ID, or 0 when dismissed.</returns>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern int TrackPopupMenuEx(IntPtr hMenu, uint uFlags, int x, int y, IntPtr hwnd, IntPtr lptpm);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     /// <returns>Message ID, or 0 on failure.</returns>
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]

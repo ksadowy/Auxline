@@ -19,8 +19,10 @@
         SizeToContent="Width" MaxWidth="240" Height="48"
         FontFamily="Segoe UI Variable Text, Segoe UI"
         Cursor="Hand">
-    <!-- Background #01000000: fully transparent pixels don't receive clicks, 1/255 alpha does. -->
-    <Grid Margin="6,0">
+    <!-- Background #01000000: fully transparent pixels don't receive clicks, 1/255 alpha does.
+         Nothing playing: content collapses and the window shrinks to zero width, leaving the taskbar untouched
+         (cheaper than hiding/re-showing, which would redo positioning and the taskbar ownership). -->
+    <Grid Margin="6,0" Visibility="{Binding HasTrack, Converter={StaticResource BoolToVisibility}}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
