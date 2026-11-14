@@ -1,3 +1,5 @@
+<img src="assets/logo/auxline-mark-512.png" alt="Auxline logo" width="128">
+
 # Auxline
 
 A lightweight, customizable media widget for the Windows 11 taskbar. It shows the current track (cover art, title, artist) in the empty area on the left side of the taskbar. Clicking it opens a flyout with playback controls and volume.
@@ -186,7 +188,11 @@ Auxline/
     - Buttons with their own face colour set `ThemedIcon.IconBrush` (layouts set button Foreground for the default look, and content inherits from the button, not the template)
     - Animations run only while the flyout is visible and music plays (`ThemeAnimation.IsActive`, discrete ones at 10 fps); one-shot transitions on track change (`ThemeAnimation.TrackChanged`). Game Boy: blinking progress block, fade-in through the shades. Arcade: blinking 1UP, header equaliser, rolling CRT band, pulsing/twinkling pellets, flash + "READY!". Vinyl: spinning record. Terminal: blinking cursor and progress block, flicker
     - Every style × theme × light/dark rendered by a test, and every theme's animations started once (`FlyoutStyleRenderTests`; `AUXLINE_RENDER_DIR` saves PNGs)
-  - [ ] Music meter in the widget, styled per theme, driven by the playing app's loudness (WASAPI peak meter)
+  - [x] Music meter in the widget, styled per theme, driven by the playing app's loudness (setting, on by default)
+    - Level: the app's Core Audio session peak (`AudioMeterInformation.MasterPeakValue`, the loudest of its sessions), read 20×/s only while the meter is visible and music plays; session lookups cached for 2 s
+    - One loudness value, not frequency bands: each bar sways at its own speed around it (`LevelMeter`), the level jumps up at once and falls back gradually (`MeterBallistics`, square root so quiet music still moves)
+    - Looks: Default rounded bars in the text colour, Game Boy / Terminal stepped blocks, Arcade neon bars, Vinyl a VU needle, Orbit thin blue lines. Hidden on vertical taskbars; stays (flat) while paused so the width doesn't jump
+    - Follows the signal before the app's mixer volume, so a muted app still moves it
 - [x] Autostart via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
   - Respects Task Manager's Startup toggle (`Explorer\StartupApproved\Run`, odd first byte = disabled)
 - [x] Tray icon (start with Windows, debug window, exit; settings once the settings window exists)
@@ -202,6 +208,8 @@ Auxline/
 - [ ] Publish as a single file: `dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true`
 - [ ] Measure RAM/CPU over a longer session
 - [ ] Optional installer (Inno Setup / MSIX)
+- [x] Logo ("wave to line") and icons, rendered by `tools/build-icons.ps1`: `assets/logo/` (SVG, PNG), `Auxline/Assets/` (`Auxline.ico` app icon 16–256 px, `TrayLight.ico` / `TrayDark.ico` one-colour tray icons)
+- [ ] Use them: `ApplicationIcon` in the project, tray icon from `TrayLight`/`TrayDark` instead of the Segoe glyph
 
 ---
 

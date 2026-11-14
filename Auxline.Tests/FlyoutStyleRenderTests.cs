@@ -6,6 +6,7 @@ using System.Windows.Media.Imaging;
 using Auxline.Controls;
 using Auxline.Models;
 using Auxline.Views;
+using Auxline.Views.Themes;
 
 namespace Auxline.Tests;
 
@@ -61,6 +62,24 @@ public sealed class FlyoutStyleRenderTests
     }
 
     public static TheoryData<FlyoutTheme> Themes() => new(Enum.GetValues<FlyoutTheme>());
+
+    /// <summary>The widget's music meter in each theme's look, mid-song, on a dark taskbar.</summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void MeterRenders(FlyoutTheme theme)
+    {
+        double width = 0;
+        RunOnStaThread(() =>
+        {
+            var meter = new LevelMeter { Look = FlyoutThemes.MeterOf(theme), Level = 0.8, Height = 14, Foreground = Brushes.White };
+            meter.Measure(new Size(double.PositiveInfinity, 14));
+            meter.Arrange(new Rect(meter.DesiredSize));
+            SaveIfRequested(meter, new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x1C)), $"Meter-{theme}.png");
+            width = meter.ActualWidth;
+        });
+
+        Assert.InRange(width, 8, 40);
+    }
 
     private static FlyoutWindow CreateWindow(FlyoutStyle style, FlyoutTheme theme, bool isLight)
     {

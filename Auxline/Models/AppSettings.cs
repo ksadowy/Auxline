@@ -168,6 +168,9 @@ public sealed partial record LookSettings
 
     public FlyoutTheme FlyoutTheme { get; init; } = FlyoutTheme.Default;
 
+    /// <summary>Bars next to the widget's title that follow how loud the music plays, in the flyout theme's style.</summary>
+    public bool ShowMusicMeter { get; init; } = true;
+
     public CornerStyle FlyoutCorners { get; init; } = CornerStyle.Round;
 
     public bool UseAcrylic { get; init; } = true;

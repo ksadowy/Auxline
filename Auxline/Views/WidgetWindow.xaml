@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:Auxline.ViewModels"
+        xmlns:controls="clr-namespace:Auxline.Controls"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:PlayerViewModel}"
         Title="Auxline"
@@ -28,6 +29,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <!-- Border + ImageBrush instead of a clipped Image: the size is a setting, and a clip geometry would need resizing too. -->
@@ -41,6 +43,10 @@
                 <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                 <TextBlock x:Name="ArtistText" Text="{Binding Artist}" FontSize="11" Opacity="0.7" TextTrimming="CharacterEllipsis" />
             </StackPanel>
+
+            <!-- Music meter: look from the flyout theme (WidgetWindow.ApplyLook); stays (flat) while paused, so the width doesn't jump. -->
+            <controls:LevelMeter x:Name="Meter" Grid.Column="2" Margin="8,0,2,0" Height="14" VerticalAlignment="Center"
+                                 Level="{Binding AudioLevel}" />
         </Grid>
     </Border>
 </Window>

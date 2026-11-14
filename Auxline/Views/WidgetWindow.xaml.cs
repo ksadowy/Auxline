@@ -5,6 +5,8 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Auxline.Models;
 using Auxline.Services;
+using Auxline.ViewModels;
+using Auxline.Views.Themes;
 using static Auxline.Interop.NativeMethods;
 
 namespace Auxline.Views;
@@ -35,6 +37,9 @@ public partial class WidgetWindow : Window
     private double _offsetDip = new LayoutSettings().LeftOffset;
     private double _maxWidthSettingDip = new LayoutSettings().MaxWidgetWidth;
     private WidgetAnchor _anchor = new LayoutSettings().Anchor;
+    private bool _isMeterEnabled = new LookSettings().ShowMusicMeter;
+    /// <summary>False on a vertical taskbar, where the widget is just the cover.</summary>
+    private bool _isHorizontal = true;
 
     /// <summary>
     /// Last measured taskbar buttons (null until the first measurement succeeds). Placement uses this synchronously,
@@ -78,6 +83,7 @@ public partial class WidgetWindow : Window
         {
             if (_anchor == WidgetAnchor.RightOfIcons && e.WidthChanged && _handle != IntPtr.Zero) RepositionAfterLayout();
         };
+        IsVisibleChanged += (_, _) => UpdateMeter();
         Closed += (_, _) => _attachment.Dispose();
     }
 
@@ -104,6 +110,17 @@ public partial class WidgetWindow : Window
         FontFamily = new FontFamily(look.FontFamily);
         TitleText.FontSize = look.TitleFontSize;
         ArtistText.FontSize = look.ArtistFontSize;
+        Meter.Look = FlyoutThemes.MeterOf(look.FlyoutTheme);
+        _isMeterEnabled = look.ShowMusicMeter;
+        UpdateMeter();
+    }
+
+    /// <summary>Shown when enabled and there's room for it; the level is only read while it can be seen.</summary>
+    private void UpdateMeter()
+    {
+        var isShown = _isMeterEnabled && _isHorizontal;
+        Meter.Visibility = isShown ? Visibility.Visible : Visibility.Collapsed;
+        (DataContext as PlayerViewModel)?.SetMeterShown(isShown && IsVisible);
     }
 
     private static SolidColorBrush FrozenBrush(Color color)
@@ -200,6 +217,8 @@ public partial class WidgetWindow : Window
     /// <summary>Cover + title/artist, sized to its content up to <paramref name="maxWidthDip"/> (0 hides it).</summary>
     private void ApplyHorizontalLayout(double thicknessDip, double maxWidthDip)
     {
+        _isHorizontal = true;
+        UpdateMeter();
         TextPanel.Visibility = Visibility.Visible;
         ContentBorder.HorizontalAlignment = HorizontalAlignment.Stretch;
         SizeToContent = SizeToContent.Width;
@@ -211,6 +230,8 @@ public partial class WidgetWindow : Window
     /// <summary>Left/right taskbar: no room for text, so a cell with just the cover (zero height hides it).</summary>
     private void ApplyVerticalLayout(double thicknessDip, double heightDip)
     {
+        _isHorizontal = false;
+        UpdateMeter();
         TextPanel.Visibility = Visibility.Collapsed;
         ContentBorder.HorizontalAlignment = HorizontalAlignment.Center;
         SizeToContent = SizeToContent.Manual;

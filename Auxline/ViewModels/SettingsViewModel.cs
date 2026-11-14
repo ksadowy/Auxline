@@ -93,6 +93,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private FlyoutTheme _flyoutTheme;
 
     [ObservableProperty]
+    private bool _showMusicMeter;
+
+    [ObservableProperty]
     private CornerStyle _flyoutCorners;
 
     [ObservableProperty]
@@ -233,6 +236,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     partial void OnFlyoutThemeChanged(FlyoutTheme value) => UpdateLook(look => look with { FlyoutTheme = value });
 
+    partial void OnShowMusicMeterChanged(bool value) => UpdateLook(look => look with { ShowMusicMeter = value });
+
     partial void OnFlyoutCornersChanged(CornerStyle value) => UpdateLook(look => look with { FlyoutCorners = value });
 
     partial void OnUseAcrylicChanged(bool value) => UpdateLook(look => look with { UseAcrylic = value });
@@ -294,6 +299,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         TextColor = settings.Look.TextColor ?? DefaultCustomTextColor;
         FlyoutStyle = settings.Look.FlyoutStyle;
         FlyoutTheme = settings.Look.FlyoutTheme;
+        ShowMusicMeter = settings.Look.ShowMusicMeter;
         FlyoutCorners = settings.Look.FlyoutCorners;
         UseAcrylic = settings.Look.UseAcrylic;
         LoadSources(settings.Sources);

@@ -157,6 +157,17 @@
 
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
+                                <CheckBox DockPanel.Dock="Right" VerticalAlignment="Center" IsChecked="{Binding ShowMusicMeter}" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Music meter in the widget" />
+                                    <TextBlock Style="{StaticResource SettingHint}"
+                                               Text="Small bars next to the title that move with how loud the music plays, in the flyout theme's style. Paused while nothing plays." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
                                 <ComboBox DockPanel.Dock="Right" Width="180" VerticalAlignment="Center"
                                           ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" />
                                 <StackPanel Margin="0,0,16,0">
