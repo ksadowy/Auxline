@@ -9,7 +9,7 @@ using static Auxline.Interop.NativeMethods;
 
 namespace Auxline.Views;
 
-/// <summary>Notification-area icon: the app's only entry point for exit, autostart and the debug window.</summary>
+/// <summary>Notification-area icon: the app's only entry point for settings, autostart, the debug window and exit.</summary>
 public sealed class AppTrayIcon : IDisposable
 {
     private const string MusicNoteGlyph = "";
@@ -22,6 +22,7 @@ public sealed class AppTrayIcon : IDisposable
         ToggleAutostart = 1,
         ShowDebugWindow = 2,
         Exit = 3,
+        ShowSettings = 4,
     }
 
     private readonly TaskbarIcon _icon;
@@ -30,6 +31,7 @@ public sealed class AppTrayIcon : IDisposable
     /// <summary>Invisible window that owns the native menu; it must be the foreground window while the menu is open.</summary>
     private readonly HwndSource _menuOwner;
 
+    public event EventHandler? SettingsRequested;
     public event EventHandler? DebugWindowRequested;
     public event EventHandler? ExitRequested;
 
@@ -83,6 +85,7 @@ public sealed class AppTrayIcon : IDisposable
         var menu = CreatePopupMenu();
         try
         {
+            AppendMenu(menu, MF_STRING, (UIntPtr)MenuCommand.ShowSettings, "Settings…");
             var autostartFlags = MF_STRING | (_autostart.IsEnabled() ? MF_CHECKED : 0);
             AppendMenu(menu, autostartFlags, (UIntPtr)MenuCommand.ToggleAutostart, "Start with Windows");
             AppendMenu(menu, MF_STRING, (UIntPtr)MenuCommand.ShowDebugWindow, "Debug window");
@@ -111,6 +114,9 @@ public sealed class AppTrayIcon : IDisposable
     {
         switch (command)
         {
+            case MenuCommand.ShowSettings:
+                SettingsRequested?.Invoke(this, EventArgs.Empty);
+                break;
             case MenuCommand.ToggleAutostart:
                 ToggleAutostart();
                 break;

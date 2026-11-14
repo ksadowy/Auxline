@@ -136,7 +136,15 @@ Auxline/
 - [x] Hide when nothing is playing (content collapses, window shrinks to zero width)
 - [ ] Handle taskbar auto-hide
 - [ ] Multi-monitor support (choose which taskbar)
-- [ ] Settings window + JSON persistence
+- [x] Never cover taskbar icons (auto-fit)
+  - Button positions via UI Automation (`Shell_TrayWnd` descendants), measured off the UI thread at startup, on display changes, after an Explorer restart and 800 ms after foreground changes
+  - The widget stays in a free gap; if the offset points into icons it stops right before them; hidden only when no gap has room
+  - Placement uses the last measurement synchronously, so moving the widget never waits for (or races) the query
+- [ ] Option: dock to the right of the icons (needed for left-aligned taskbars)
+- [ ] Settings window + JSON persistence (`%AppData%\Auxline\settings.json`, debounced atomic saves, live apply)
+  - [x] Position & size: left offset, max width, cover size (capped to the taskbar height)
+  - [ ] Look: theme, font, font sizes, text colour, flyout corners, acrylic
+  - [ ] Source selection: per-app on/off and priority
 - [ ] Source selection
   - List every source seen so far (`SourceAppUserModelId`, e.g. `Spotify.exe`, `chrome.exe`)
   - Toggle each source on/off; disabled sources are skipped when picking the session
@@ -190,6 +198,7 @@ How it works: it calls `navigator.mediaSession.setPositionState()` when media st
 git clone <repo-url>
 cd Auxline
 dotnet run --project Auxline
+dotnet test Auxline.slnx   # unit tests (settings, timeline, taskbar placement)
 ```
 
 ---

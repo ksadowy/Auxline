@@ -16,8 +16,8 @@ public partial class App : Application
     private MediaService? _media;
     private VolumeService? _volume;
     private TaskbarService? _taskbar;
+    private SettingsService? _settings;
     private AppTrayIcon? _tray;
-    private DebugWindow? _debugWindow;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -66,6 +66,7 @@ public partial class App : Application
         _media?.Dispose();
         _volume?.Dispose();
         _taskbar?.Dispose();
+        _settings?.Dispose(); // writes a change still waiting for its debounced save
         _singleInstance?.Dispose();
         AppDiagnostics.Stop();
         base.OnExit(e);
@@ -75,17 +76,21 @@ public partial class App : Application
     {
         _volume = new VolumeService();
         _taskbar = new TaskbarService();
+        _settings = SettingsService.Load(SettingsService.DefaultPath);
         var player = new PlayerViewModel(media, _volume, Dispatcher);
 
         var flyout = new FlyoutWindow(_taskbar) { DataContext = player };
         var widget = new WidgetWindow(_taskbar) { DataContext = player };
         widget.Clicked += (_, _) => flyout.Toggle(widget.Bounds);
+        widget.ApplyLayout(_settings.Current.Layout);
+        _settings.Changed += (_, settings) => widget.ApplyLayout(settings.Layout);
         widget.Show();
 
         var executablePath = Environment.ProcessPath
             ?? throw new InvalidOperationException("Cannot determine the Auxline executable path.");
         _tray = new AppTrayIcon(new AutostartService(executablePath), _taskbar.UsesLightTheme());
-        _tray.DebugWindowRequested += (_, _) => ShowDebugWindow(player);
+        _tray.SettingsRequested += (_, _) => ShowSingle(() => new SettingsWindow { DataContext = new SettingsViewModel(_settings) });
+        _tray.DebugWindowRequested += (_, _) => ShowSingle(() => new DebugWindow { DataContext = player });
         _tray.ExitRequested += (_, _) => Shutdown();
     }
 
@@ -100,14 +105,11 @@ public partial class App : Application
         Shutdown(1);
     }
 
-    private void ShowDebugWindow(PlayerViewModel player)
+    /// <summary>One window per kind: asking again brings the open one to the front instead of opening another.</summary>
+    private void ShowSingle<TWindow>(Func<TWindow> create) where TWindow : Window
     {
-        if (_debugWindow is null)
-        {
-            _debugWindow = new DebugWindow { DataContext = player };
-            _debugWindow.Closed += (_, _) => _debugWindow = null;
-        }
-        _debugWindow.Show();
-        _debugWindow.Activate();
+        var window = Windows.OfType<TWindow>().FirstOrDefault() ?? create();
+        window.Show();
+        window.Activate();
     }
 }

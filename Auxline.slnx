@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Auxline.Tests/Auxline.Tests.csproj" />
+  <Project Path="Auxline/Auxline.csproj" />
+</Solution>

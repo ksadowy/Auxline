@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Automation;
 using Microsoft.Win32;
 using static Auxline.Interop.NativeMethods;
 
@@ -36,6 +37,44 @@ public sealed class TaskbarService : IDisposable
 
     /// <returns>Primary taskbar window, or IntPtr.Zero when Explorer isn't running.</returns>
     public IntPtr FindTaskbarWindow() => FindWindow(TaskbarWindowClass, null);
+
+    /// <summary>
+    /// Buttons on the taskbar (Start, search, pinned/running apps, tray icons) via UI Automation.
+    /// A cross-process query (~75 ms), so call it off the UI thread.
+    /// </summary>
+    /// <returns>Spans in physical pixels, or null when they can't be read (layout unknown).</returns>
+    public IReadOnlyList<ButtonSpan>? GetButtonSpans()
+    {
+        var taskbarWindow = FindTaskbarWindow();
+        if (taskbarWindow == IntPtr.Zero) return null;
+
+        try
+        {
+            // Fetch rectangles and visibility in the same round trip instead of one call per button.
+            var cache = new CacheRequest();
+            cache.Add(AutomationElement.BoundingRectangleProperty);
+            cache.Add(AutomationElement.IsOffscreenProperty);
+            using (cache.Activate())
+            {
+                var buttons = AutomationElement.FromHandle(taskbarWindow).FindAll(
+                    TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button));
+
+                return buttons.Cast<AutomationElement>()
+                    .Where(button => !(bool)button.GetCachedPropertyValue(AutomationElement.IsOffscreenProperty))
+                    .Select(button => (Rect)button.GetCachedPropertyValue(AutomationElement.BoundingRectangleProperty))
+                    .Where(bounds => !bounds.IsEmpty && bounds.Width > 0)
+                    .Select(bounds => new ButtonSpan(bounds.Left, bounds.Right))
+                    .ToList();
+            }
+        }
+        catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or COMException)
+        {
+            // Explorer restarting or the taskbar redrawing mid-query.
+            Trace.TraceWarning($"Reading taskbar buttons failed: {ex.Message}");
+            return null;
+        }
+    }
 
     /// <returns>Primary taskbar bounds in physical pixels, or null when Explorer reports no taskbar.</returns>
     public Int32Rect? GetTaskbarBounds()
