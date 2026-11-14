@@ -22,8 +22,6 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
-
         <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Window}}" />
             <Setter Property="Background" Value="Transparent" />

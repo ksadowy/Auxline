@@ -126,7 +126,7 @@ Auxline/
 
 ### Phase 5 - Polish
 - [ ] Hide when a fullscreen app is running (`SHQueryUserNotificationState`, or compare the foreground window bounds with the monitor bounds)
-- [ ] Hide or show a placeholder when nothing is playing
+- [x] Hide when nothing is playing (content collapses, window shrinks to zero width)
 - [ ] Handle taskbar auto-hide
 - [ ] Multi-monitor support (choose which taskbar)
 - [ ] Settings window + JSON persistence
@@ -135,9 +135,13 @@ Auxline/
   - Toggle each source on/off; disabled sources are skipped when picking the session
   - User-defined priority order replaces the hardcoded "prefer Spotify" rule
   - Note: filtering is per app, not per site (GSMTC reports `chrome.exe`, not "YouTube")
-- [ ] Autostart via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
-- [ ] Tray icon (settings, restart, exit)
-- [ ] Single-instance check (named mutex)
+- [x] Autostart via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+  - Respects Task Manager's Startup toggle (`Explorer\StartupApproved\Run`, odd first byte = disabled)
+- [x] Tray icon (start with Windows, debug window, exit; settings once the settings window exists)
+  - Native menu (`TrackPopupMenuEx`): a WPF ContextMenu closes instantly when the icon is in the overflow flyout
+- [ ] Dark tray menu in dark mode (native menus are light by default)
+- [x] Single-instance check (named mutex)
+- [x] Runs in the background; debug window only on demand
 
 ### Phase 6 - Release
 - [ ] Publish as a single file: `dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true`

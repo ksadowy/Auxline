@@ -21,6 +21,9 @@ public sealed partial class PlayerViewModel : ObservableObject
     private bool _isProgressShown;
 
     [ObservableProperty]
+    private bool _hasTrack;
+
+    [ObservableProperty]
     private string _source = "";
 
     [ObservableProperty]
@@ -135,6 +138,7 @@ public sealed partial class PlayerViewModel : ObservableObject
 
     private void Show(MediaTrack? track)
     {
+        HasTrack = track is not null;
         Source = track?.SourceAppId ?? "-";
         Title = track?.Title ?? "Nothing playing";
         Artist = track?.Artist ?? "";
