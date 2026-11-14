@@ -56,8 +56,12 @@ The project must target a Windows SDK version to access WinRT APIs:
 ```
 Auxline/
 ├── App.xaml / App.xaml.cs        # Startup, single instance, tray icon
+├── Diagnostics/
+│   ├── AppDiagnostics.cs         # Log file + global error handlers
+│   └── RollingFileTraceListener.cs # Trace → %LocalAppData%\Auxline\logs (1 MB, 1 backup)
 ├── Models/
-│   └── MediaTrack.cs             # Immutable snapshot of the current track
+│   ├── MediaTrack.cs             # Immutable snapshot of the current track
+│   └── MediaTimeline.cs          # Position/duration + interpolation
 ├── ViewModels/
 │   └── PlayerViewModel.cs        # Now-playing state + commands, shared by all windows
 ├── Services/
@@ -65,14 +69,17 @@ Auxline/
 │   ├── VolumeService.cs          # Core Audio: per-app volume
 │   ├── AppIdentity.cs            # Maps GSMTC app ID → process name
 │   ├── TaskbarService.cs         # Taskbar position, fullscreen detection
+│   ├── AutostartService.cs       # Start with Windows (Run key + Task Manager toggle)
 │   └── SettingsService.cs        # Load/save JSON settings
 ├── Views/
 │   ├── DebugWindow.xaml          # Phase 1: track info + controls, for testing
 │   ├── WidgetWindow.xaml         # Compact widget sitting on the taskbar
 │   ├── FlyoutWindow.xaml         # Popup with cover art and controls
+│   ├── AppTrayIcon.cs            # Tray icon + native menu
 │   └── SettingsWindow.xaml       # Customization UI
 ├── Interop/
-│   └── NativeMethods.cs          # P/Invoke declarations
+│   ├── NativeMethods.cs          # P/Invoke declarations
+│   └── WindowBackdrop.cs         # Acrylic, rounded corners, dark frame
 └── app.manifest                  # PerMonitorV2 DPI awareness
 ```
 
@@ -142,6 +149,8 @@ Auxline/
 - [ ] Dark tray menu in dark mode (native menus are light by default)
 - [x] Single-instance check (named mutex)
 - [x] Runs in the background; debug window only on demand
+- [x] Log file (`%LocalAppData%\Auxline\logs\auxline.log`, 1 MB + 1 backup) and global error handlers
+  - UI and background-task errors are logged and the app keeps running; startup failures show a message and exit
 
 ### Phase 6 - Release
 - [ ] Publish as a single file: `dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true`
