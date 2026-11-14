@@ -12,7 +12,7 @@ using Auxline.Services;
 namespace Auxline.ViewModels;
 
 /// <summary>A dropdown entry: the setting's value with a readable label.</summary>
-public sealed record AnchorOption(WidgetAnchor Value, string Label);
+public sealed record Choice<T>(T Value, string Label);
 
 /// <param name="Device">Monitor device name, or <see cref="PrimaryDevice"/> for "follow the primary monitor".</param>
 public sealed record MonitorOption(string Device, string Label)
@@ -87,15 +87,28 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private Color _pickerColor = Colors.White;
 
     [ObservableProperty]
+    private FlyoutStyle _flyoutStyle;
+
+    [ObservableProperty]
     private CornerStyle _flyoutCorners;
 
     [ObservableProperty]
     private bool _useAcrylic;
 
-    public IReadOnlyList<AnchorOption> AnchorOptions { get; } =
+    public IReadOnlyList<Choice<WidgetAnchor>> AnchorOptions { get; } =
     [
         new(WidgetAnchor.LeftOfIcons, "Left of the taskbar icons"),
         new(WidgetAnchor.RightOfIcons, "Right of the icons, next to the tray"),
+    ];
+
+    public IReadOnlyList<Choice<FlyoutStyle>> FlyoutStyleOptions { get; } =
+    [
+        new(FlyoutStyle.Classic, "Classic"),
+        new(FlyoutStyle.Native, "Native Windows 11"),
+        new(FlyoutStyle.BigCover, "Big cover"),
+        new(FlyoutStyle.CoverTinted, "Cover-tinted"),
+        new(FlyoutStyle.Compact, "Compact"),
+        new(FlyoutStyle.Minimalist, "Minimalist"),
     ];
 
     public IReadOnlyList<ThemePreference> Themes { get; } = Enum.GetValues<ThemePreference>();
@@ -203,6 +216,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     partial void OnPickerColorChanged(Color value) => TextColor = $"#{value.R:X2}{value.G:X2}{value.B:X2}";
 
+    partial void OnFlyoutStyleChanged(FlyoutStyle value) => UpdateLook(look => look with { FlyoutStyle = value });
+
     partial void OnFlyoutCornersChanged(CornerStyle value) => UpdateLook(look => look with { FlyoutCorners = value });
 
     partial void OnUseAcrylicChanged(bool value) => UpdateLook(look => look with { UseAcrylic = value });
@@ -262,6 +277,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         ArtistFontSize = settings.Look.ArtistFontSize;
         UseCustomTextColor = settings.Look.TextColor is not null;
         TextColor = settings.Look.TextColor ?? DefaultCustomTextColor;
+        FlyoutStyle = settings.Look.FlyoutStyle;
         FlyoutCorners = settings.Look.FlyoutCorners;
         UseAcrylic = settings.Look.UseAcrylic;
         LoadSources(settings.Sources);

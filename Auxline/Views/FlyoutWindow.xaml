@@ -7,8 +7,7 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:PlayerViewModel}"
         Title="Auxline"
-        Width="320"
-        SizeToContent="Height"
+        SizeToContent="WidthAndHeight"
         WindowStyle="SingleBorderWindow"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
@@ -21,103 +20,6 @@
         <WindowChrome CaptionHeight="0" GlassFrameThickness="-1" ResizeBorderThickness="0" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
-    <Window.Resources>
-        <Style x:Key="IconButton" TargetType="Button">
-            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Window}}" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Width" Value="44" />
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Margin" Value="4,0" />
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="6">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="#22808080" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="#44808080" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.35" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
-
-    <StackPanel Margin="16">
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <Image Width="72" Height="72" Stretch="UniformToFill" Source="{Binding Cover}">
-                <Image.Clip>
-                    <RectangleGeometry Rect="0,0,72,72" RadiusX="6" RadiusY="6" />
-                </Image.Clip>
-            </Image>
-
-            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                <TextBlock Text="{Binding Artist}" FontSize="12" Opacity="0.8" TextTrimming="CharacterEllipsis" />
-                <TextBlock Text="{Binding Album}" FontSize="12" Opacity="0.6" TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-        </Grid>
-
-        <Grid Margin="0,12,0,0" Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <TextBlock Text="{Binding PositionText}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
-            <Slider Grid.Column="1" Margin="8,0" VerticalAlignment="Center" Focusable="False"
-                    Minimum="0" Maximum="{Binding DurationSeconds}" Value="{Binding PositionSeconds}"
-                    IsMoveToPointEnabled="True" IsEnabled="{Binding CanSeek}"
-                    PreviewMouseLeftButtonDown="OnProgressPressed"
-                    PreviewMouseLeftButtonUp="OnProgressReleased" />
-            <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
-        </Grid>
-
-        <StackPanel Margin="0,8,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
-            <Button Style="{StaticResource IconButton}" Command="{Binding SkipPreviousCommand}"
-                    ToolTip="Previous" Content="&#xE892;" />
-            <Button Style="{StaticResource IconButton}" Command="{Binding TogglePlayPauseCommand}" ToolTip="Play / Pause">
-                <TextBlock>
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Text" Value="&#xE768;" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPlaying}" Value="True">
-                                    <Setter Property="Text" Value="&#xE769;" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </Button>
-            <Button Style="{StaticResource IconButton}" Command="{Binding SkipNextCommand}"
-                    ToolTip="Next" Content="&#xE893;" />
-        </StackPanel>
-
-        <DockPanel Margin="0,12,0,0">
-            <TextBlock DockPanel.Dock="Left" Margin="0,0,8,0" VerticalAlignment="Center"
-                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE767;" />
-            <TextBlock DockPanel.Dock="Right" Width="36" TextAlignment="Right" VerticalAlignment="Center"
-                       Text="{Binding VolumePercent, StringFormat={}{0:0}%}" />
-            <Slider Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" VerticalAlignment="Center"
-                    Value="{Binding VolumePercent}" IsEnabled="{Binding HasAudioSession}" />
-        </DockPanel>
-    </StackPanel>
+    <!-- The chosen layout from Views/FlyoutStyles is placed here (see FlyoutWindow.ApplyLook); each sets its width. -->
+    <ContentControl x:Name="StyleHost" Focusable="False" />
 </Window>

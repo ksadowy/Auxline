@@ -1,0 +1,79 @@
+<UserControl x:Class="Auxline.Views.FlyoutStyles.MinimalistStyle"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Auxline.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:PlayerViewModel}"
+             Width="280">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="FlyoutResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Grey while the line shows progress, full text colour while it shows volume. -->
+            <Style x:Key="SpeakerToggle" TargetType="ToggleButton" BasedOn="{StaticResource IconButton}">
+                <Setter Property="Foreground" Value="{DynamicResource FlyoutSecondaryTextBrush}" />
+                <Style.Triggers>
+                    <Trigger Property="IsChecked" Value="True">
+                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <!--
+        Only what's needed: one line that is either the progress (default) or the volume (speaker toggle or mouse
+        wheel, back to progress after a few seconds), and three icons. Background stays the window's (no own frame).
+    -->
+    <StackPanel Margin="20,20,8,14" Background="Transparent">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border Width="44" Height="44" CornerRadius="8">
+                <Border.Background>
+                    <ImageBrush ImageSource="{Binding Cover}" Stretch="UniformToFill" />
+                </Border.Background>
+            </Border>
+            <StackPanel Grid.Column="1" Margin="12,0,4,0" VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource Trimmed}" Text="{Binding Title}" FontSize="14" FontWeight="Medium" />
+                <TextBlock Style="{StaticResource Trimmed}" Margin="0,2,0,0" Text="{Binding Artist}" FontSize="12"
+                           Foreground="{DynamicResource FlyoutSecondaryTextBrush}" />
+            </StackPanel>
+            <ToggleButton x:Name="VolumeToggle" Grid.Column="2" Style="{StaticResource SpeakerToggle}"
+                          Content="&#xE767;" FontSize="14" ToolTip="Volume"
+                          Checked="OnVolumeToggleChanged" Unchecked="OnVolumeToggleChanged" />
+        </Grid>
+
+        <Grid Margin="0,14,12,0" Height="20">
+            <Slider x:Name="ProgressSlider" Style="{StaticResource FlyoutSliderThin}" Foreground="{DynamicResource FlyoutAccentBrush}"
+                    Minimum="0" Maximum="{Binding DurationSeconds}" Value="{Binding PositionSeconds}" IsEnabled="{Binding CanSeek}"
+                    Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}" />
+            <DockPanel x:Name="VolumeLine" Visibility="Collapsed">
+                <TextBlock DockPanel.Dock="Right" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="11"
+                           Foreground="{DynamicResource FlyoutSecondaryTextBrush}"
+                           Text="{Binding VolumePercent, StringFormat=Volume {0:0}}" />
+                <Slider x:Name="VolumeSlider" Style="{StaticResource FlyoutSliderThin}"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Minimum="0" Maximum="100" Value="{Binding VolumePercent}" IsEnabled="{Binding HasAudioSession}" />
+            </DockPanel>
+        </Grid>
+
+        <StackPanel Margin="0,8,12,0" Orientation="Horizontal" HorizontalAlignment="Center">
+            <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource FlyoutSecondaryTextBrush}"
+                    Command="{Binding SkipPreviousCommand}" ToolTip="Previous" Content="&#xE892;" />
+            <Button Style="{StaticResource IconButton}" Margin="16,0" Foreground="{DynamicResource FlyoutAccentBrush}" FontSize="20"
+                    Command="{Binding TogglePlayPauseCommand}" ToolTip="Play / Pause">
+                <TextBlock Style="{StaticResource PlayPauseGlyph}" />
+            </Button>
+            <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource FlyoutSecondaryTextBrush}"
+                    Command="{Binding SkipNextCommand}" ToolTip="Next" Content="&#xE893;" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

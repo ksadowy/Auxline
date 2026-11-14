@@ -132,6 +132,18 @@
                     <StackPanel Style="{StaticResource TabPage}">
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Width="200" VerticalAlignment="Center"
+                                          ItemsSource="{Binding FlyoutStyleOptions}" DisplayMemberPath="Label"
+                                          SelectedValuePath="Value" SelectedValue="{Binding FlyoutStyle}" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Flyout style" />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="Layout of the panel that opens when you click the widget." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
                                 <ComboBox DockPanel.Dock="Right" Width="180" VerticalAlignment="Center"
                                           ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" />
                                 <StackPanel Margin="0,0,16,0">

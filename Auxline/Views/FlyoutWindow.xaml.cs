@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -6,13 +8,14 @@ using Auxline.Interop;
 using Auxline.Models;
 using Auxline.Services;
 using Auxline.ViewModels;
+using Auxline.Views.FlyoutStyles;
 using static Auxline.Interop.NativeMethods;
 
 namespace Auxline.Views;
 
 /// <summary>
-/// Popup above the widget with cover art, progress, controls and volume. Reused: hidden, never closed.
-/// Closes when it loses focus (click anywhere else) or on Esc.
+/// Popup next to the widget with cover art, progress, controls and volume, in the chosen layout (FlyoutStyles).
+/// Reused: hidden, never closed. Closes when it loses focus (click anywhere else) or on Esc.
 /// </summary>
 public partial class FlyoutWindow : Window
 {
@@ -25,12 +28,16 @@ public partial class FlyoutWindow : Window
     /// </summary>
     private const long ReopenGuardMilliseconds = 300;
 
+    /// <summary>Each style names its seek bar this way; the window handles seeking for all of them.</summary>
+    private const string ProgressSliderName = "ProgressSlider";
+
     /// <summary>Used when acrylic is off or unsupported; same tints as Windows 11 flyouts.</summary>
     private static readonly Brush LightSolidBackground = Freeze(new SolidColorBrush(Color.FromRgb(0xF3, 0xF3, 0xF3)));
     private static readonly Brush DarkSolidBackground = Freeze(new SolidColorBrush(Color.FromRgb(0x20, 0x20, 0x20)));
 
     private LookSettings _look = new();
     private bool _isLight;
+    private FlyoutStyle? _appliedStyle;
     private IntPtr _handle;
     private Rect _anchor;
     private TaskbarEdge _taskbarEdge = TaskbarEdge.Bottom;
@@ -51,11 +58,14 @@ public partial class FlyoutWindow : Window
             Hide();
         };
         KeyDown += OnKeyDown;
+        PreviewMouseLeftButtonDown += OnPreviewMouseDown;
+        PreviewMouseLeftButtonUp += OnPreviewMouseUp;
         IsVisibleChanged += (_, _) => Player.SetProgressShown(IsVisible);
+        DataContextChanged += OnDataContextChanged;
         // Content can grow while open (e.g. the progress bar appears); keep the edge facing the widget in place.
         SizeChanged += (_, e) =>
         {
-            if (IsVisible && e.HeightChanged) PlaceNextToAnchor(ActualHeight);
+            if (IsVisible) PlaceNextToAnchor(e.NewSize);
         };
     }
 
@@ -67,7 +77,28 @@ public partial class FlyoutWindow : Window
         _isLight = isLight;
         Foreground = isLight ? Brushes.Black : Brushes.White;
         FontFamily = new FontFamily(look.FontFamily);
+        FlyoutPalette.Apply(Resources, isLight);
+        FlyoutPalette.ApplyCover(Resources, (DataContext as PlayerViewModel)?.CoverColor, isLight);
+
+        // Recreate the layout only when the style changes: rebuilding resets things like the compact volume toggle.
+        if (look.FlyoutStyle != _appliedStyle)
+        {
+            _appliedStyle = look.FlyoutStyle;
+            StyleHost.Content = FlyoutStyleFactory.Create(look.FlyoutStyle);
+        }
         if (_handle != IntPtr.Zero) ApplyFrame();
+    }
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is PlayerViewModel oldPlayer) oldPlayer.PropertyChanged -= OnPlayerPropertyChanged;
+        if (e.NewValue is PlayerViewModel newPlayer) newPlayer.PropertyChanged += OnPlayerPropertyChanged;
+    }
+
+    /// <summary>A new track's cover recolours the cover-tinted style.</summary>
+    private void OnPlayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PlayerViewModel.CoverColor)) FlyoutPalette.ApplyCover(Resources, Player.CoverColor, _isLight);
     }
 
     /// <param name="anchor">Widget bounds in DIPs.</param>
@@ -86,37 +117,55 @@ public partial class FlyoutWindow : Window
         _anchor = anchor;
         _taskbarEdge = taskbarEdge;
         _workArea = workArea;
+        // Each style sets its own width (Minimalist is narrower).
         var content = (FrameworkElement)Content;
-        content.Measure(new Size(Width, double.PositiveInfinity));
-        PlaceNextToAnchor(content.DesiredSize.Height);
+        content.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        PlaceNextToAnchor(content.DesiredSize);
 
         Show();
         Activate();
     }
 
-    private void PlaceNextToAnchor(double height)
+    private void PlaceNextToAnchor(Size size)
     {
+        var (width, height) = (size.Width, size.Height);
         (Left, Top) = _taskbarEdge switch
         {
             TaskbarEdge.Top => (_anchor.Left, _anchor.Bottom + GapToAnchorDip),
             TaskbarEdge.Left => (_anchor.Right + GapToAnchorDip, _anchor.Top),
-            TaskbarEdge.Right => (_anchor.Left - Width - GapToAnchorDip, _anchor.Top),
+            TaskbarEdge.Right => (_anchor.Left - width - GapToAnchorDip, _anchor.Top),
             _ => (_anchor.Left, _anchor.Top - height - GapToAnchorDip),
         };
 
         // Keep it on the widget's monitor: next to a vertical taskbar it hangs down from the widget, and docked right
         // near the screen edge it would stick out sideways.
         Top = Math.Max(_workArea.Top, Math.Min(Top, _workArea.Bottom - height));
-        Left = Math.Max(_workArea.Left, Math.Min(Left, _workArea.Right - Width));
+        Left = Math.Max(_workArea.Left, Math.Min(Left, _workArea.Right - width));
     }
 
-    private void OnProgressPressed(object sender, MouseButtonEventArgs e) => Player.IsSeeking = true;
+    /// <summary>Pressing the seek bar pauses position updates, so they don't fight the thumb.</summary>
+    private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (IsOnProgressSlider(e.OriginalSource as DependencyObject)) Player.IsSeeking = true;
+    }
 
     /// <summary>Seek once on release (click or end of drag), not on every value change while dragging.</summary>
-    private void OnProgressReleased(object sender, MouseButtonEventArgs e)
+    private void OnPreviewMouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (!Player.IsSeeking) return;
         Player.IsSeeking = false;
         Player.SeekCommand.Execute(null);
+    }
+
+    private static bool IsOnProgressSlider(DependencyObject? element)
+    {
+        // Text runs aren't visuals; anything clicked on a slider is.
+        while (element is Visual)
+        {
+            if (element is Slider { Name: ProgressSliderName }) return true;
+            element = VisualTreeHelper.GetParent(element);
+        }
+        return false;
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)

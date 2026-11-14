@@ -1,5 +1,7 @@
 using System.IO;
 using System.Windows.Media.Imaging;
+using Auxline.Controls;
+using Color = System.Windows.Media.Color;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -26,6 +28,10 @@ public sealed partial class PlayerViewModel : ObservableObject
     [ObservableProperty]
     private string _source = "";
 
+    /// <summary>Readable name of the playing app (e.g. "Spotify", "Zen"), for the native flyout style's header.</summary>
+    [ObservableProperty]
+    private string _sourceName = "";
+
     [ObservableProperty]
     private string _title = "";
 
@@ -51,6 +57,10 @@ public sealed partial class PlayerViewModel : ObservableObject
 
     [ObservableProperty]
     private BitmapImage? _cover;
+
+    /// <summary>Dominant colour of the cover (null without one), for the cover-tinted flyout style.</summary>
+    [ObservableProperty]
+    private Color? _coverColor;
 
     [ObservableProperty]
     private string _status = "";
@@ -140,6 +150,7 @@ public sealed partial class PlayerViewModel : ObservableObject
     {
         HasTrack = track is not null;
         Source = track?.SourceAppId ?? "-";
+        SourceName = track is null ? "" : AppIdentity.ToDisplayName(track.SourceAppId);
         Title = track?.Title ?? "Nothing playing";
         Artist = track?.Artist ?? "";
         Album = track?.Album ?? "";
@@ -148,6 +159,7 @@ public sealed partial class PlayerViewModel : ObservableObject
         CanSkipNext = track?.CanSkipNext ?? false;
         CanSkipPrevious = track?.CanSkipPrevious ?? false;
         Cover = track?.Thumbnail is { } bytes ? ToBitmap(bytes) : null;
+        CoverColor = Cover is null ? null : CoverPalette.DominantColor(Cover);
         _processName = track is null ? null : AppIdentity.ToProcessName(track.SourceAppId);
         ShowVolume();
         ShowTimeline(track?.Timeline);

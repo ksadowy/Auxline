@@ -170,6 +170,13 @@ Auxline/
   - User-defined priority order replaces the hardcoded "prefer Spotify" rule (Spotify first by default)
   - Note: filtering is per app, not per site (GSMTC reports `chrome.exe`, not "YouTube")
 - [ ] Design polish pass once features are complete (collect notes here)
+  - [x] Flyout styles, selectable in Appearance: Classic, Native Windows 11, Big cover, Cover-tinted, Compact, Minimalist
+    - Minimalist: one line for progress or volume (speaker toggle or mouse wheel, back to progress after 3 s), system accent colour; narrower (280 vs 320), so each style sets its own width
+    - Designed on a Claude Design canvas first; one XAML `UserControl` per style (`Views/FlyoutStyles/`), shared building blocks in `FlyoutResources.xaml`
+    - Colours are named brushes set per light/dark by `FlyoutPalette`; this is where themes plug in
+    - Native: Windows' accent colour (`SystemColors.AccentColorLight2/Dark1`); Cover-tinted: dominant colour of the album art (`CoverPalette`, contrast ≥ 3:1 tested)
+    - Every style rendered in both themes by a test (`FlyoutStyleRenderTests`; `AUXLINE_RENDER_DIR` saves PNGs)
+  - [ ] Themes (colour sets for widget + flyout)
 - [x] Autostart via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
   - Respects Task Manager's Startup toggle (`Explorer\StartupApproved\Run`, odd first byte = disabled)
 - [x] Tray icon (start with Windows, debug window, exit; settings once the settings window exists)
