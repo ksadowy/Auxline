@@ -7,6 +7,11 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:controls="clr-namespace:Auxline.Controls">
 
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="PixelIcons.xaml" />
+        <ResourceDictionary Source="SliderParts.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
     <Color x:Key="GbDarkestColor">#0F380F</Color>
     <Color x:Key="GbDarkColor">#306230</Color>
     <Color x:Key="GbLightColor">#8BAC0F</Color>
@@ -38,16 +43,6 @@
     <SolidColorBrush x:Key="CoverAccentForegroundBrush" Color="{StaticResource GbLightestColor}" />
     <SolidColorBrush x:Key="CoverTextBrush" Color="{StaticResource GbDarkestColor}" />
     <SolidColorBrush x:Key="CoverSecondaryTextBrush" Color="{StaticResource GbDarkColor}" />
-
-    <!-- Icons on an 8×8 pixel grid. -->
-    <Geometry x:Key="PixelPrevious">M1,1h1v6h-1z M4,3h1v2h-1z M5,2h1v4h-1z M6,1h1v6h-1z</Geometry>
-    <Geometry x:Key="PixelNext">M1,1h1v6h-1z M2,2h1v4h-1z M3,3h1v2h-1z M6,1h1v6h-1z</Geometry>
-    <Geometry x:Key="PixelPlay">M2,0h1v8h-1z M3,1h1v6h-1z M4,2h1v4h-1z M5,3h1v2h-1z</Geometry>
-    <Geometry x:Key="PixelPause">M1,1h2v6h-2z M5,1h2v6h-2z</Geometry>
-    <Geometry x:Key="PixelVolumeLow">M0,3h2v2h-2z M2,2h1v4h-1z M3,1h1v6h-1z M5,3h1v2h-1z</Geometry>
-    <Geometry x:Key="PixelVolume">M0,3h2v2h-2z M2,2h1v4h-1z M3,1h1v6h-1z M5,3h1v2h-1z M7,2h1v4h-1z</Geometry>
-    <Geometry x:Key="PixelVolumeHigh">M0,3h2v2h-2z M2,2h1v4h-1z M3,1h1v6h-1z M5,3h1v2h-1z M7,1h1v6h-1z</Geometry>
-    <Geometry x:Key="PixelMusic">M1,5h3v2h-3z M4,1h1v6h-1z M5,1h2v1h-2z M7,2h1v2h-1z</Geometry>
 
     <!-- Green LCD with a dark outline; a new track fades in from blank through the shades. -->
     <ControlTemplate x:Key="FlyoutFrameTemplate" TargetType="ContentControl">
@@ -81,38 +76,6 @@
                 </Border.Background>
             </Border>
         </Border>
-    </ControlTemplate>
-
-    <ControlTemplate x:Key="ThemedIconTemplate" TargetType="controls:ThemedIcon">
-        <Viewbox Width="{TemplateBinding FontSize}" Height="{TemplateBinding FontSize}">
-            <Canvas Width="8" Height="8">
-                <Path x:Name="Shape" Fill="{TemplateBinding Foreground}" Data="{StaticResource PixelMusic}"
-                      RenderOptions.EdgeMode="Aliased" />
-            </Canvas>
-        </Viewbox>
-        <ControlTemplate.Triggers>
-            <Trigger Property="Kind" Value="Previous">
-                <Setter TargetName="Shape" Property="Data" Value="{StaticResource PixelPrevious}" />
-            </Trigger>
-            <Trigger Property="Kind" Value="Next">
-                <Setter TargetName="Shape" Property="Data" Value="{StaticResource PixelNext}" />
-            </Trigger>
-            <Trigger Property="Kind" Value="Play">
-                <Setter TargetName="Shape" Property="Data" Value="{StaticResource PixelPlay}" />
-            </Trigger>
-            <Trigger Property="Kind" Value="Pause">
-                <Setter TargetName="Shape" Property="Data" Value="{StaticResource PixelPause}" />
-            </Trigger>
-            <Trigger Property="Kind" Value="Volume">
-                <Setter TargetName="Shape" Property="Data" Value="{StaticResource PixelVolume}" />
-            </Trigger>
-            <Trigger Property="Kind" Value="VolumeLow">
-                <Setter TargetName="Shape" Property="Data" Value="{StaticResource PixelVolumeLow}" />
-            </Trigger>
-            <Trigger Property="Kind" Value="VolumeHigh">
-                <Setter TargetName="Shape" Property="Data" Value="{StaticResource PixelVolumeHigh}" />
-            </Trigger>
-        </ControlTemplate.Triggers>
     </ControlTemplate>
 
     <!-- Square key with a hard shadow; pressing (or checking a toggle) pushes it onto the shadow. -->
@@ -161,22 +124,6 @@
         </ControlTemplate.Triggers>
     </ControlTemplate>
 
-    <!-- The blocks are drawn by SegmentBar; the Track on top only handles clicks and drags. -->
-    <Style x:Key="InvisibleTrackPart" TargetType="RepeatButton">
-        <Setter Property="Focusable" Value="False" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="RepeatButton">
-                    <Grid Background="Transparent" />
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <ControlTemplate x:Key="InvisibleThumb" TargetType="Thumb">
-        <Rectangle Width="10" Fill="Transparent" />
-    </ControlTemplate>
-
     <!-- Progress: the block being filled blinks while playing. Volume bars have no such block. -->
     <ControlTemplate x:Key="FlyoutSliderTemplate" TargetType="Slider">
         <Grid Height="20" Background="Transparent">
@@ -185,10 +132,10 @@
                                  FilledBrush="{TemplateBinding Foreground}" EmptyBrush="{StaticResource GbLight}" />
             <Track x:Name="PART_Track">
                 <Track.DecreaseRepeatButton>
-                    <RepeatButton Style="{StaticResource InvisibleTrackPart}" Command="Slider.DecreaseLarge" />
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.DecreaseLarge" />
                 </Track.DecreaseRepeatButton>
                 <Track.IncreaseRepeatButton>
-                    <RepeatButton Style="{StaticResource InvisibleTrackPart}" Command="Slider.IncreaseLarge" />
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.IncreaseLarge" />
                 </Track.IncreaseRepeatButton>
                 <Track.Thumb>
                     <Thumb Focusable="False" Template="{StaticResource InvisibleThumb}" />
@@ -232,10 +179,10 @@
                                  FilledBrush="{TemplateBinding Foreground}" EmptyBrush="{StaticResource GbLight}" />
             <Track x:Name="PART_Track">
                 <Track.DecreaseRepeatButton>
-                    <RepeatButton Style="{StaticResource InvisibleTrackPart}" Command="Slider.DecreaseLarge" />
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.DecreaseLarge" />
                 </Track.DecreaseRepeatButton>
                 <Track.IncreaseRepeatButton>
-                    <RepeatButton Style="{StaticResource InvisibleTrackPart}" Command="Slider.IncreaseLarge" />
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.IncreaseLarge" />
                 </Track.IncreaseRepeatButton>
                 <Track.Thumb>
                     <Thumb Focusable="False" Template="{StaticResource InvisibleThumb}" />

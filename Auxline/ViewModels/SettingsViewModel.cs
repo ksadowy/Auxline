@@ -118,6 +118,10 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [
         new(FlyoutTheme.Default, "Default (Windows 11)"),
         new(FlyoutTheme.GameBoy, "Pixel · Game Boy"),
+        new(FlyoutTheme.Arcade, "Pixel · Arcade"),
+        new(FlyoutTheme.Vinyl, "Vinyl"),
+        new(FlyoutTheme.Terminal, "Terminal"),
+        new(FlyoutTheme.Orbit, "Orbit"),
     ];
 
     public IReadOnlyList<ThemePreference> Themes { get; } = Enum.GetValues<ThemePreference>();

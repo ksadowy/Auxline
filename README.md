@@ -174,11 +174,17 @@ Auxline/
     - Minimalist: one line for progress or volume (speaker toggle or mouse wheel, back to progress after 3 s), system accent colour; narrower (280 vs 320), so each style sets its own width
     - Designed on a Claude Design canvas first; one XAML `UserControl` per style (`Views/FlyoutStyles/`), shared building blocks in `FlyoutResources.xaml`
     - Native: Windows' accent colour (`SystemColors.AccentColorLight2/Dark1`); Cover-tinted: dominant colour of the album art (`CoverPalette`, contrast ≥ 3:1 tested)
-  - [ ] Flyout themes (the look, applied to every style): Default + Pixel · Game Boy done; Arcade, Vinyl, Terminal, Orbit next
-    - One `ResourceDictionary` per theme (`Views/Themes/`) merged into the flyout window: colours, control templates (buttons, sliders), `ThemedIcon` icons, `CoverArt` frame, and a frame template around the layout. Styles only use `DynamicResource` keys, so a theme swaps everything live
-    - Default: Windows 11 look, colours from `FlyoutPalette` (light/dark, system accent). Other themes have a fixed palette, their own font, corners and background (acrylic off) — `FlyoutThemeTraits`
-    - Game Boy: four LCD greens, Silkscreen pixel font (bundled, SIL OFL), pixel-art icons, square keys with a hard shadow, progress/volume as blocks (`SegmentBar`)
-    - Animations run only while the flyout is visible and music plays (`ThemeAnimation.IsActive`); one-shot transitions on track change (`ThemeAnimation.TrackChanged`). Game Boy: blinking progress block, fade-in through the shades
+  - [x] Flyout themes (the look, applied to every style): Default, Pixel · Game Boy, Pixel · Arcade, Vinyl, Terminal, Orbit
+    - One `ResourceDictionary` per theme (`Views/Themes/`) merged into the flyout window: colours, control templates (buttons, sliders), `ThemedIcon` icons, `CoverArt` frame, and a frame template around the layout. Styles only use `DynamicResource` keys, so a theme swaps everything live. Shared parts: `FluentIcons`, `PixelIcons`, `SliderParts`; Vinyl and Orbit build on the default theme
+    - Default: Windows 11 look, colours from `FlyoutPalette` (light/dark, system accent). Other themes have a `FixedLook`: own palette, font, corners, window border colour (`DWMWA_BORDER_COLOR`) and background (acrylic off)
+    - Game Boy: four LCD greens, Silkscreen pixel font, pixel-art icons, square keys with a hard shadow, progress/volume as blocks (`SegmentBar`)
+    - Arcade: CRT scanlines and neon outline, Press Start 2P font, round arcade buttons, "1UP · NOW PLAYING" header, pellet progress (`PelletBar`), rising volume bars
+    - Vinyl: walnut and amber, the cover as a spinning record label, aluminium keys with a play light
+    - Terminal: phosphor green, monospace, title bar with the source and a cursor, text icons, boxed buttons that invert on hover, `[█████░░░]` bars, the cover in green through its brightness (`LuminanceMaskConverter`)
+    - Orbit: dark navy with thin blue lines (for dark blue wallpapers), outlined buttons, ruler progress/volume (`RulerBar`)
+    - Pixel fonts are bundled (`Fonts/`, SIL Open Font License); the others are Windows fonts (Bahnschrift, Cascadia Mono)
+    - Buttons with their own face colour set `ThemedIcon.IconBrush` (layouts set button Foreground for the default look, and content inherits from the button, not the template)
+    - Animations run only while the flyout is visible and music plays (`ThemeAnimation.IsActive`, discrete ones at 10 fps); one-shot transitions on track change (`ThemeAnimation.TrackChanged`). Game Boy: blinking progress block, fade-in through the shades. Arcade: blinking 1UP, header equaliser, rolling CRT band, pulsing/twinkling pellets, flash + "READY!". Vinyl: spinning record. Terminal: blinking cursor and progress block, flicker
     - Every style × theme × light/dark rendered by a test, and every theme's animations started once (`FlyoutStyleRenderTests`; `AUXLINE_RENDER_DIR` saves PNGs)
   - [ ] Music meter in the widget, styled per theme, driven by the playing app's loudness (WASAPI peak meter)
 - [x] Autostart via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`

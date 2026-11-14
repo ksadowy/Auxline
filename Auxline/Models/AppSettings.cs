@@ -124,6 +124,18 @@ public enum FlyoutTheme
 
     /// <summary>Four-shade green handheld LCD, pixel font, blocky controls.</summary>
     GameBoy,
+
+    /// <summary>Black CRT with scanlines and neon, arcade font, round arcade buttons, pellet progress.</summary>
+    Arcade,
+
+    /// <summary>Warm walnut hi-fi: the cover spins as a record, aluminium keys, amber accent.</summary>
+    Vinyl,
+
+    /// <summary>Green phosphor console: monospace, text-like controls, block bars.</summary>
+    Terminal,
+
+    /// <summary>Calm dark navy with thin blue lines, ruler progress (made for dark blue space wallpapers).</summary>
+    Orbit,
 }
 
 public enum CornerStyle

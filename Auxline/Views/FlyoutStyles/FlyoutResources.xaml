@@ -18,6 +18,8 @@
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Template" Value="{DynamicResource IconButtonTemplate}" />
+        <!-- Optional theme key, for buttons with their own face colour (see ThemedIcon.IconBrush). -->
+        <Setter Property="controls:ThemedIcon.IconBrush" Value="{DynamicResource IconButtonIconBrush}" />
     </Style>
 
     <!-- Emphasised button (play/pause). Size per style via Width/Height; colours via Background/Foreground. -->
@@ -30,6 +32,7 @@
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Template" Value="{DynamicResource PrimaryButtonTemplate}" />
+        <Setter Property="controls:ThemedIcon.IconBrush" Value="{DynamicResource PrimaryButtonIconBrush}" />
     </Style>
 
     <!-- Play while paused, pause while playing. -->

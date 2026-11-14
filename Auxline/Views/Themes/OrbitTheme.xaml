@@ -1,0 +1,127 @@
+<!--
+    Orbit flyout theme: calm dark navy with thin blue lines, made for dark blue space wallpapers. Bahnschrift
+    (FlyoutThemes), outlined round buttons, the cover in a thin frame, progress and volume as rulers. No animations.
+    Builds on the default theme (icons, play button) and replaces the rest.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Auxline.Controls">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="DefaultTheme.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <Color x:Key="OrbitSpaceColor">#05090F</Color>
+    <Color x:Key="OrbitTextColor">#D6E4FB</Color>
+    <Color x:Key="OrbitSoftColor">#A9BBD8</Color>
+    <Color x:Key="OrbitBlueColor">#6FA8F5</Color>
+
+    <SolidColorBrush x:Key="OrbitLine" Color="#4D6FA8F5" />
+    <SolidColorBrush x:Key="OrbitDim" Color="#406FA8F5" />
+
+    <!-- The keys every theme defines (see FlyoutPalette for what they're used for). -->
+    <SolidColorBrush x:Key="FlyoutForegroundBrush" Color="{StaticResource OrbitTextColor}" />
+    <SolidColorBrush x:Key="FlyoutBackgroundBrush" Color="{StaticResource OrbitSpaceColor}" />
+    <SolidColorBrush x:Key="FlyoutSecondaryTextBrush" Color="{StaticResource OrbitSoftColor}" />
+    <SolidColorBrush x:Key="FlyoutTertiaryTextBrush" Color="#6F82A3" />
+    <SolidColorBrush x:Key="FlyoutTrackBrush" Color="#406FA8F5" />
+    <SolidColorBrush x:Key="FlyoutSliderFillBrush" Color="{StaticResource OrbitBlueColor}" />
+    <SolidColorBrush x:Key="FlyoutHoverBrush" Color="#1F78AAFF" />
+    <SolidColorBrush x:Key="FlyoutPressedBrush" Color="#3378AAFF" />
+    <SolidColorBrush x:Key="FlyoutSeparatorBrush" Color="#266FA8F5" />
+    <SolidColorBrush x:Key="FlyoutPrimaryButtonBrush" Color="{StaticResource OrbitBlueColor}" />
+    <SolidColorBrush x:Key="FlyoutPrimaryButtonForegroundBrush" Color="{StaticResource OrbitSpaceColor}" />
+    <SolidColorBrush x:Key="FlyoutAccentBrush" Color="{StaticResource OrbitBlueColor}" />
+    <SolidColorBrush x:Key="FlyoutAccentForegroundBrush" Color="{StaticResource OrbitSpaceColor}" />
+    <SolidColorBrush x:Key="CoverTintBrush" Color="#0A1322" />
+    <SolidColorBrush x:Key="CoverAccentBrush" Color="{StaticResource OrbitBlueColor}" />
+    <SolidColorBrush x:Key="CoverAccentForegroundBrush" Color="{StaticResource OrbitSpaceColor}" />
+    <SolidColorBrush x:Key="CoverTextBrush" Color="{StaticResource OrbitTextColor}" />
+    <SolidColorBrush x:Key="CoverSecondaryTextBrush" Color="{StaticResource OrbitSoftColor}" />
+
+    <ControlTemplate x:Key="FlyoutFrameTemplate" TargetType="ContentControl">
+        <Border Background="{StaticResource FlyoutBackgroundBrush}">
+            <ContentPresenter />
+        </Border>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="CoverArtTemplate" TargetType="controls:CoverArt">
+        <Border CornerRadius="6" Padding="3" BorderThickness="1" BorderBrush="{StaticResource OrbitLine}">
+            <Border CornerRadius="3">
+                <Border.Background>
+                    <ImageBrush ImageSource="{Binding Source, RelativeSource={RelativeSource TemplatedParent}}" Stretch="UniformToFill" />
+                </Border.Background>
+            </Border>
+        </Border>
+    </ControlTemplate>
+
+    <!-- Thin outlined circle, faintly filled on hover. -->
+    <ControlTemplate x:Key="IconButtonTemplate" TargetType="ButtonBase">
+        <Grid>
+            <Ellipse x:Name="Ring" Margin="2" Stroke="{StaticResource OrbitLine}" StrokeThickness="1" Fill="Transparent" />
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="ToggleButton.IsChecked" Value="True">
+                <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource FlyoutPressedBrush}" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource FlyoutHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource FlyoutPressedBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.35" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- A ruler; the progress one has a marker above the position. -->
+    <ControlTemplate x:Key="FlyoutSliderTemplate" TargetType="Slider">
+        <Grid Height="20" Background="Transparent">
+            <controls:RulerBar x:Name="Ruler" Height="14" VerticalAlignment="Center"
+                               Value="{TemplateBinding Value}" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                               LitBrush="{TemplateBinding Foreground}" DimBrush="{StaticResource OrbitDim}" />
+            <Track x:Name="PART_Track">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.DecreaseLarge" />
+                </Track.DecreaseRepeatButton>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.IncreaseLarge" />
+                </Track.IncreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb Focusable="False" Template="{StaticResource InvisibleThumb}" />
+                </Track.Thumb>
+            </Track>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="Name" Value="ProgressSlider">
+                <Setter TargetName="Ruler" Property="ShowsMarker" Value="True" />
+                <Setter TargetName="Ruler" Property="Height" Value="20" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="FlyoutSliderThinTemplate" TargetType="Slider">
+        <Grid Height="12" Background="Transparent">
+            <controls:RulerBar Height="8" VerticalAlignment="Center" Spacing="6"
+                               Value="{TemplateBinding Value}" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                               LitBrush="{TemplateBinding Foreground}" DimBrush="{StaticResource OrbitDim}" />
+            <Track x:Name="PART_Track">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.DecreaseLarge" />
+                </Track.DecreaseRepeatButton>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.IncreaseLarge" />
+                </Track.IncreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb Focusable="False" Template="{StaticResource InvisibleThumb}" />
+                </Track.Thumb>
+            </Track>
+        </Grid>
+    </ControlTemplate>
+</ResourceDictionary>

@@ -34,8 +34,9 @@ public partial class FlyoutWindow : Window
     private const string ProgressSliderName = "ProgressSlider";
 
     private LookSettings _look = new();
-    private FlyoutThemeTraits _traits = FlyoutThemes.TraitsOf(FlyoutTheme.Default);
-    /// <summary>The flyout's effective light/dark: the setting, unless the theme has a fixed palette.</summary>
+    /// <summary>Null while the theme follows the settings (Default).</summary>
+    private FixedLook? _fixedLook;
+    /// <summary>The flyout's effective light/dark: the setting, unless the theme has a fixed look.</summary>
     private bool _isLight;
     private FlyoutStyle? _appliedStyle;
     private (FlyoutTheme Theme, bool IsLight)? _appliedTheme;
@@ -82,9 +83,9 @@ public partial class FlyoutWindow : Window
     public void ApplyLook(LookSettings look, bool isLight)
     {
         _look = look;
-        _traits = FlyoutThemes.TraitsOf(look.FlyoutTheme);
-        _isLight = _traits.IsLight ?? isLight;
-        FontFamily = _traits.Font ?? new FontFamily(look.FontFamily);
+        _fixedLook = FlyoutThemes.FixedLookOf(look.FlyoutTheme);
+        _isLight = _fixedLook?.IsLight ?? isLight;
+        FontFamily = _fixedLook?.Font ?? new FontFamily(look.FontFamily);
 
         // Swapping the theme re-applies every template: only when it changes, not on every settings change.
         if (_appliedTheme != (look.FlyoutTheme, _isLight))
@@ -128,12 +129,12 @@ public partial class FlyoutWindow : Window
     }
 
     /// <summary>
-    /// The cover-tinted style's colours from the album art, unless the theme has a fixed palette (which defines them).
+    /// The cover-tinted style's colours from the album art, unless the theme has a fixed look (which defines them).
     /// Written into the theme's dictionary, so switching themes drops them.
     /// </summary>
     private void ApplyCoverColors()
     {
-        if (_traits.IsLight is null) FlyoutPalette.ApplyCover(_themeResources, (DataContext as PlayerViewModel)?.CoverColor, _isLight);
+        if (_fixedLook is null) FlyoutPalette.ApplyCover(_themeResources, (DataContext as PlayerViewModel)?.CoverColor, _isLight);
     }
 
     /// <summary>Theme animations loop only while they can be seen and the music plays.</summary>
@@ -224,8 +225,9 @@ public partial class FlyoutWindow : Window
 
     private void ApplyFrame()
     {
-        var useAcrylic = _traits.UsesSystemBackdrop && _look.UseAcrylic;
-        var hasAcrylic = WindowBackdrop.Apply(_handle, isDark: !_isLight, _traits.Corners ?? _look.FlyoutCorners, useAcrylic);
+        var useAcrylic = _fixedLook is null && _look.UseAcrylic;
+        var hasAcrylic = WindowBackdrop.Apply(_handle, isDark: !_isLight, _fixedLook?.Corners ?? _look.FlyoutCorners, useAcrylic);
+        WindowBackdrop.SetBorderColor(_handle, _fixedLook?.BorderColor);
         if (hasAcrylic) Background = Brushes.Transparent;
         else SetResourceReference(BackgroundProperty, "FlyoutBackgroundBrush");
     }

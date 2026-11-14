@@ -50,7 +50,10 @@ internal static class NativeMethods
 
     public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    public const int DWMWA_BORDER_COLOR = 34;
     public const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
+    /// <summary>For DWMWA_BORDER_COLOR: back to the system's border colour.</summary>
+    public const int DWMWA_COLOR_DEFAULT = unchecked((int)0xFFFFFFFF);
     public const int DWMWCP_DONOTROUND = 1;
     public const int DWMWCP_ROUND = 2;
     public const int DWMWCP_ROUNDSMALL = 3;

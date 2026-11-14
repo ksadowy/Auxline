@@ -1,5 +1,6 @@
 using Auxline.Models;
 using static Auxline.Interop.NativeMethods;
+using Color = System.Windows.Media.Color;
 
 namespace Auxline.Interop;
 
@@ -16,6 +17,14 @@ internal static class WindowBackdrop
         SetAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ToCornerPreference(corners));
         var isBackdropSet = SetAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, useAcrylic ? DWMSBT_TRANSIENTWINDOW : DWMSBT_NONE);
         return useAcrylic && isBackdropSet;
+    }
+
+    /// <summary>The thin border Windows 11 draws around the window; null = the system's default colour.</summary>
+    public static void SetBorderColor(IntPtr hwnd, Color? color)
+    {
+        // COLORREF: 0x00BBGGRR.
+        var value = color is { } c ? c.R | (c.G << 8) | (c.B << 16) : DWMWA_COLOR_DEFAULT;
+        SetAttribute(hwnd, DWMWA_BORDER_COLOR, value);
     }
 
     private static int ToCornerPreference(CornerStyle corners) => corners switch

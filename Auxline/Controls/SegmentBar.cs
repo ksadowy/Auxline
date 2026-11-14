@@ -8,25 +8,21 @@ namespace Auxline.Controls;
 /// differently (<see cref="ActiveBrush"/>, <see cref="ActiveOpacity"/>), e.g. blinking. Drawn directly: a template
 /// with one element per block would be far heavier for the same look.
 /// </summary>
-public sealed class SegmentBar : FrameworkElement
+public sealed class SegmentBar : RangeBar
 {
-    public static readonly DependencyProperty ValueProperty = RenderProperty(nameof(Value), 0.0);
-    public static readonly DependencyProperty MinimumProperty = RenderProperty(nameof(Minimum), 0.0);
-    public static readonly DependencyProperty MaximumProperty = RenderProperty(nameof(Maximum), 1.0);
-
     /// <summary>Preferred block length; the count is whatever fits, then blocks stretch to fill the width exactly.</summary>
-    public static readonly DependencyProperty SegmentLengthProperty = RenderProperty(nameof(SegmentLength), 14.0);
-    public static readonly DependencyProperty GapProperty = RenderProperty(nameof(Gap), 2.0);
-    public static readonly DependencyProperty FilledBrushProperty = RenderProperty<Brush?>(nameof(FilledBrush), null);
-    public static readonly DependencyProperty EmptyBrushProperty = RenderProperty<Brush?>(nameof(EmptyBrush), null);
-    public static readonly DependencyProperty ActiveBrushProperty = RenderProperty<Brush?>(nameof(ActiveBrush), null);
-    public static readonly DependencyProperty ActiveOpacityProperty = RenderProperty(nameof(ActiveOpacity), 1.0);
+    public static readonly DependencyProperty SegmentLengthProperty = RenderProperty<SegmentBar, double>(nameof(SegmentLength), 14.0);
+    public static readonly DependencyProperty GapProperty = RenderProperty<SegmentBar, double>(nameof(Gap), 2.0);
+    public static readonly DependencyProperty FilledBrushProperty = RenderProperty<SegmentBar, Brush?>(nameof(FilledBrush), null);
+    public static readonly DependencyProperty EmptyBrushProperty = RenderProperty<SegmentBar, Brush?>(nameof(EmptyBrush), null);
+    public static readonly DependencyProperty ActiveBrushProperty = RenderProperty<SegmentBar, Brush?>(nameof(ActiveBrush), null);
+    public static readonly DependencyProperty ActiveOpacityProperty = RenderProperty<SegmentBar, double>(nameof(ActiveOpacity), 1.0);
 
-    public double Value { get => (double)GetValue(ValueProperty); set => SetValue(ValueProperty, value); }
+    /// <summary>Blocks grow taller from left to right, like a signal meter.</summary>
+    public static readonly DependencyProperty IsRisingProperty = RenderProperty<SegmentBar, bool>(nameof(IsRising), false);
 
-    public double Minimum { get => (double)GetValue(MinimumProperty); set => SetValue(MinimumProperty, value); }
-
-    public double Maximum { get => (double)GetValue(MaximumProperty); set => SetValue(MaximumProperty, value); }
+    /// <summary>The first block's height relative to the last when <see cref="IsRising"/>.</summary>
+    private const double RisingStart = 0.25;
 
     public double SegmentLength { get => (double)GetValue(SegmentLengthProperty); set => SetValue(SegmentLengthProperty, value); }
 
@@ -41,6 +37,8 @@ public sealed class SegmentBar : FrameworkElement
 
     public double ActiveOpacity { get => (double)GetValue(ActiveOpacityProperty); set => SetValue(ActiveOpacityProperty, value); }
 
+    public bool IsRising { get => (bool)GetValue(IsRisingProperty); set => SetValue(IsRisingProperty, value); }
+
     /// <summary>How many blocks fit, and how many of them are filled.</summary>
     internal static (int Count, int Filled) Layout(double width, double segmentLength, double gap, double fraction)
     {
@@ -54,9 +52,7 @@ public sealed class SegmentBar : FrameworkElement
         var (width, height) = (ActualWidth, ActualHeight);
         if (width <= 0 || height <= 0) return;
 
-        var range = Maximum - Minimum;
-        var fraction = range > 0 ? (Value - Minimum) / range : 0;
-        var (count, filled) = Layout(width, SegmentLength, Gap, fraction);
+        var (count, filled) = Layout(width, SegmentLength, Gap, Fraction);
         var length = (width - Gap * (count - 1)) / count;
 
         for (var i = 0; i < count; i++)
@@ -64,7 +60,8 @@ public sealed class SegmentBar : FrameworkElement
             // Whole pixels keep the blocks crisp.
             var left = Math.Round(i * (length + Gap));
             var right = Math.Round(i * (length + Gap) + length);
-            var block = new Rect(left, 0, Math.Max(1, right - left), height);
+            var blockHeight = IsRising && count > 1 ? Math.Round(height * (RisingStart + (1 - RisingStart) * i / (count - 1))) : height;
+            var block = new Rect(left, height - blockHeight, Math.Max(1, right - left), blockHeight);
 
             context.DrawRectangle(i < filled ? FilledBrush : EmptyBrush, null, block);
             if (i == filled && ActiveBrush is not null)
@@ -75,8 +72,4 @@ public sealed class SegmentBar : FrameworkElement
             }
         }
     }
-
-    private static DependencyProperty RenderProperty<T>(string name, T defaultValue) =>
-        DependencyProperty.Register(name, typeof(T), typeof(SegmentBar),
-            new FrameworkPropertyMetadata(defaultValue, FrameworkPropertyMetadataOptions.AffectsRender));
 }
