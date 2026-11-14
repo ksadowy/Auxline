@@ -48,12 +48,7 @@ public sealed class AppTrayIcon : IDisposable
         _icon = new TaskbarIcon
         {
             ToolTipText = "Auxline",
-            IconSource = new GeneratedIconSource
-            {
-                Text = MusicNoteGlyph,
-                FontFamily = new FontFamily(PickIconFont()),
-                Foreground = isLightTheme ? Brushes.Black : Brushes.White,
-            },
+            IconSource = CreateIconSource(isLightTheme),
         };
         _icon.TrayRightMouseUp += (_, _) => ShowMenu();
         // Created in code (not in a visual tree), so it must be created explicitly.
@@ -61,12 +56,22 @@ public sealed class AppTrayIcon : IDisposable
         _icon.ForceCreate(enablesEfficiencyMode: false);
     }
 
+    /// <summary>Re-renders the icon when the taskbar switches between light and dark.</summary>
+    public void ApplyTheme(bool isTaskbarLight) => _icon.IconSource = CreateIconSource(isTaskbarLight);
+
     /// <summary>Removes the icon right away; otherwise a dead icon lingers until hovered.</summary>
     public void Dispose()
     {
         _icon.Dispose();
         _menuOwner.Dispose();
     }
+
+    private static GeneratedIconSource CreateIconSource(bool isTaskbarLight) => new()
+    {
+        Text = MusicNoteGlyph,
+        FontFamily = new FontFamily(PickIconFont()),
+        Foreground = isTaskbarLight ? Brushes.Black : Brushes.White,
+    };
 
     /// <summary>
     /// The icon is rendered via System.Drawing, which needs exactly one installed font name

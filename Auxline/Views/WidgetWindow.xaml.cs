@@ -64,7 +64,6 @@ public partial class WidgetWindow : Window
     {
         InitializeComponent();
         _taskbar = taskbar;
-        Foreground = taskbar.UsesLightTheme() ? Brushes.Black : Brushes.White;
 
         SourceInitialized += OnSourceInitialized;
         MouseLeftButtonUp += (_, _) => Clicked?.Invoke(this, EventArgs.Empty);
@@ -100,6 +99,25 @@ public partial class WidgetWindow : Window
         CoverImage.Height = layout.CoverSize;
         if (_handle != IntPtr.Zero) Reposition();
         else MaxWidth = _maxWidthSettingDip;
+    }
+
+    /// <summary>Applies live; safe to call before the window is shown.</summary>
+    /// <param name="isTaskbarLight">The widget sits on the taskbar, so automatic text contrasts with it.</param>
+    public void ApplyLook(LookSettings look, bool isTaskbarLight)
+    {
+        Foreground = look.TextColor is { } hex
+            ? FrozenBrush((Color)ColorConverter.ConvertFromString(hex))
+            : isTaskbarLight ? Brushes.Black : Brushes.White;
+        FontFamily = new FontFamily(look.FontFamily);
+        TitleText.FontSize = look.TitleFontSize;
+        ArtistText.FontSize = look.ArtistFontSize;
+    }
+
+    private static SolidColorBrush FrozenBrush(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)

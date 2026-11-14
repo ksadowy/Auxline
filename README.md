@@ -143,8 +143,11 @@ Auxline/
 - [ ] Option: dock to the right of the icons (needed for left-aligned taskbars)
 - [ ] Settings window + JSON persistence (`%AppData%\Auxline\settings.json`, debounced atomic saves, live apply)
   - [x] Position & size: left offset, max width, cover size (capped to the taskbar height)
-  - [ ] Look: theme, font, font sizes, text colour, flyout corners, acrylic
+  - [x] Appearance: theme, font (searchable list), font sizes, text colour (colour wheel + hex), flyout corners, acrylic
+  - [x] Follows Windows light/dark switches live (widget, tray icon, flyout)
+- [x] Clicking the widget while the flyout is open closes it (instead of close + reopen)
   - [ ] Source selection: per-app on/off and priority
+- [ ] Design polish pass once features are complete (collect notes here)
 - [ ] Source selection
   - List every source seen so far (`SourceAppUserModelId`, e.g. `Spotify.exe`, `chrome.exe`)
   - Toggle each source on/off; disabled sources are skipped when picking the session

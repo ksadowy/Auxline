@@ -38,8 +38,8 @@
             </Border>
 
             <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
-                <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                <TextBlock Text="{Binding Artist}" FontSize="11" Opacity="0.7" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="ArtistText" Text="{Binding Artist}" FontSize="11" Opacity="0.7" TextTrimming="CharacterEllipsis" />
             </StackPanel>
         </Grid>
     </Border>

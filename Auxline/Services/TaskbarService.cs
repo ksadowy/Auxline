@@ -18,9 +18,16 @@ public sealed class TaskbarService : IDisposable
     // Kept in a field so the GC doesn't collect the delegate while native code still calls it.
     private readonly WinEventProc _foregroundCallback;
     private readonly IntPtr _foregroundHook;
+    private bool _wasLightTheme;
 
     /// <summary>Raised whenever any window becomes the foreground window (including the taskbar itself).</summary>
     public event EventHandler? ForegroundChanged;
+
+    /// <summary>
+    /// Raised when Windows switches between light and dark (Settings → Personalization → Colors).
+    /// Raised on a background thread: handlers must marshal to the UI thread.
+    /// </summary>
+    public event EventHandler? ThemeChanged;
 
     public TaskbarService()
     {
@@ -33,6 +40,9 @@ public sealed class TaskbarService : IDisposable
         {
             Trace.TraceWarning("Foreground hook failed; the taskbar may occasionally cover the widget.");
         }
+
+        _wasLightTheme = UsesLightTheme();
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
     }
 
     /// <returns>Primary taskbar window, or IntPtr.Zero when Explorer isn't running.</returns>
@@ -95,6 +105,17 @@ public sealed class TaskbarService : IDisposable
 
     public void Dispose()
     {
+        // SystemEvents is static: without unsubscribing, it would keep this instance alive.
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
+    }
+
+    /// <summary>Fires for many unrelated preferences, so only a real light/dark switch is passed on.</summary>
+    private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        var isLight = UsesLightTheme();
+        if (isLight == _wasLightTheme) return;
+        _wasLightTheme = isLight;
+        ThemeChanged?.Invoke(this, EventArgs.Empty);
     }
 }

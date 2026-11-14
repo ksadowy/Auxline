@@ -3,7 +3,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using Auxline.Interop;
-using Auxline.Services;
+using Auxline.Models;
 using Auxline.ViewModels;
 using static Auxline.Interop.NativeMethods;
 
@@ -17,19 +17,35 @@ public partial class FlyoutWindow : Window
 {
     private const double GapAboveAnchorDip = 12;
 
-    private readonly bool _isLightTheme;
+    /// <summary>
+    /// Clicking the widget while the flyout is open first deactivates (hides) the flyout on mouse down, then raises
+    /// the widget's click on mouse up. A toggle this soon after a focus-loss hide is that same click: stay closed.
+    /// </summary>
+    private const long ReopenGuardMilliseconds = 300;
+
+    /// <summary>Used when acrylic is off or unsupported; same tints as Windows 11 flyouts.</summary>
+    private static readonly Brush LightSolidBackground = Freeze(new SolidColorBrush(Color.FromRgb(0xF3, 0xF3, 0xF3)));
+    private static readonly Brush DarkSolidBackground = Freeze(new SolidColorBrush(Color.FromRgb(0x20, 0x20, 0x20)));
+
+    private LookSettings _look = new();
+    private bool _isLight;
+    private IntPtr _handle;
     private Rect _anchor;
+    /// <summary>Tick count of the last focus-loss hide; null until it first happens.</summary>
+    private long? _hiddenByFocusLossAt;
 
     private PlayerViewModel Player => (PlayerViewModel)DataContext;
 
-    public FlyoutWindow(TaskbarService taskbar)
+    public FlyoutWindow()
     {
         InitializeComponent();
-        _isLightTheme = taskbar.UsesLightTheme();
-        Foreground = _isLightTheme ? Brushes.Black : Brushes.White;
 
         SourceInitialized += OnSourceInitialized;
-        Deactivated += (_, _) => Hide();
+        Deactivated += (_, _) =>
+        {
+            _hiddenByFocusLossAt = Environment.TickCount64;
+            Hide();
+        };
         KeyDown += OnKeyDown;
         IsVisibleChanged += (_, _) => Player.SetProgressShown(IsVisible);
         // Content can grow while open (e.g. the progress bar appears); keep the bottom edge above the widget.
@@ -37,6 +53,17 @@ public partial class FlyoutWindow : Window
         {
             if (IsVisible && e.HeightChanged) PlaceAboveAnchor(ActualHeight);
         };
+    }
+
+    /// <summary>Applies live; safe to call before the window is shown.</summary>
+    /// <param name="isLight">Resolved theme (the "System" preference already replaced by the actual system theme).</param>
+    public void ApplyLook(LookSettings look, bool isLight)
+    {
+        _look = look;
+        _isLight = isLight;
+        Foreground = isLight ? Brushes.Black : Brushes.White;
+        FontFamily = new FontFamily(look.FontFamily);
+        if (_handle != IntPtr.Zero) ApplyFrame();
     }
 
     /// <param name="anchor">Widget bounds in DIPs; the flyout opens above it, left-aligned.</param>
@@ -47,6 +74,7 @@ public partial class FlyoutWindow : Window
             Hide();
             return;
         }
+        if (_hiddenByFocusLossAt is { } hiddenAt && Environment.TickCount64 - hiddenAt < ReopenGuardMilliseconds) return;
 
         // Measure before showing so the flyout appears at its final position, without a jump.
         _anchor = anchor;
@@ -75,29 +103,34 @@ public partial class FlyoutWindow : Window
 
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
-        var handle = new WindowInteropHelper(this).Handle;
+        _handle = new WindowInteropHelper(this).Handle;
 
-        var exStyle = GetWindowLongPtr(handle, GWL_EXSTYLE);
-        SetWindowLongPtr(handle, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW);
+        var exStyle = GetWindowLongPtr(_handle, GWL_EXSTYLE);
+        SetWindowLongPtr(_handle, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW);
 
         // Without a system menu DWM draws no caption buttons (the red X) on the extended frame.
-        var style = GetWindowLongPtr(handle, GWL_STYLE);
-        SetWindowLongPtr(handle, GWL_STYLE, style & ~(nint)WS_SYSMENU);
+        var style = GetWindowLongPtr(_handle, GWL_STYLE);
+        SetWindowLongPtr(_handle, GWL_STYLE, style & ~(nint)WS_SYSMENU);
 
-        if (WindowBackdrop.TryApplyAcrylic(handle, isDark: !_isLightTheme))
-        {
-            // WPF must paint nothing so the DWM backdrop shows through.
-            HwndSource.FromHwnd(handle).CompositionTarget.BackgroundColor = Colors.Transparent;
-        }
-        else
-        {
-            // Solid colors matching the Windows 11 flyout tints.
-            Background = new SolidColorBrush(_isLightTheme ? Color.FromRgb(0xF3, 0xF3, 0xF3) : Color.FromRgb(0x20, 0x20, 0x20));
-        }
+        // WPF paints nothing itself, so either the DWM backdrop or our solid Background shows.
+        HwndSource.FromHwnd(_handle).CompositionTarget.BackgroundColor = Colors.Transparent;
+        ApplyFrame();
+    }
+
+    private void ApplyFrame()
+    {
+        var hasAcrylic = WindowBackdrop.Apply(_handle, isDark: !_isLight, _look.FlyoutCorners, _look.UseAcrylic);
+        Background = hasAcrylic ? Brushes.Transparent : _isLight ? LightSolidBackground : DarkSolidBackground;
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape) Hide();
+    }
+
+    private static Brush Freeze(Brush brush)
+    {
+        brush.Freeze();
+        return brush;
     }
 }

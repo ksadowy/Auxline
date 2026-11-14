@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Auxline.Models;
 
 namespace Auxline.Services;
@@ -21,6 +22,8 @@ public sealed class SettingsService : IDisposable
         WriteIndented = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
+        // "Theme": "Dark" instead of "Theme": 2, so the file stays readable and editable by hand.
+        Converters = { new JsonStringEnumConverter() },
     };
 
     private readonly string _path;
