@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Automation;
 using Microsoft.Win32;
 using static Auxline.Interop.NativeMethods;
 
@@ -17,9 +18,16 @@ public sealed class TaskbarService : IDisposable
     // Kept in a field so the GC doesn't collect the delegate while native code still calls it.
     private readonly WinEventProc _foregroundCallback;
     private readonly IntPtr _foregroundHook;
+    private bool _wasLightTheme;
 
     /// <summary>Raised whenever any window becomes the foreground window (including the taskbar itself).</summary>
     public event EventHandler? ForegroundChanged;
+
+    /// <summary>
+    /// Raised when Windows switches between light and dark (Settings → Personalization → Colors).
+    /// Raised on a background thread: handlers must marshal to the UI thread.
+    /// </summary>
+    public event EventHandler? ThemeChanged;
 
     public TaskbarService()
     {
@@ -32,10 +40,51 @@ public sealed class TaskbarService : IDisposable
         {
             Trace.TraceWarning("Foreground hook failed; the taskbar may occasionally cover the widget.");
         }
+
+        _wasLightTheme = UsesLightTheme();
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
     }
 
     /// <returns>Primary taskbar window, or IntPtr.Zero when Explorer isn't running.</returns>
     public IntPtr FindTaskbarWindow() => FindWindow(TaskbarWindowClass, null);
+
+    /// <summary>
+    /// Buttons on the taskbar (Start, search, pinned/running apps, tray icons) via UI Automation.
+    /// A cross-process query (~75 ms), so call it off the UI thread.
+    /// </summary>
+    /// <returns>Spans in physical pixels, or null when they can't be read (layout unknown).</returns>
+    public IReadOnlyList<ButtonSpan>? GetButtonSpans()
+    {
+        var taskbarWindow = FindTaskbarWindow();
+        if (taskbarWindow == IntPtr.Zero) return null;
+
+        try
+        {
+            // Fetch rectangles and visibility in the same round trip instead of one call per button.
+            var cache = new CacheRequest();
+            cache.Add(AutomationElement.BoundingRectangleProperty);
+            cache.Add(AutomationElement.IsOffscreenProperty);
+            using (cache.Activate())
+            {
+                var buttons = AutomationElement.FromHandle(taskbarWindow).FindAll(
+                    TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button));
+
+                return buttons.Cast<AutomationElement>()
+                    .Where(button => !(bool)button.GetCachedPropertyValue(AutomationElement.IsOffscreenProperty))
+                    .Select(button => (Rect)button.GetCachedPropertyValue(AutomationElement.BoundingRectangleProperty))
+                    .Where(bounds => !bounds.IsEmpty && bounds.Width > 0)
+                    .Select(bounds => new ButtonSpan(bounds.Left, bounds.Right))
+                    .ToList();
+            }
+        }
+        catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or COMException)
+        {
+            // Explorer restarting or the taskbar redrawing mid-query.
+            Trace.TraceWarning($"Reading taskbar buttons failed: {ex.Message}");
+            return null;
+        }
+    }
 
     /// <returns>Primary taskbar bounds in physical pixels, or null when Explorer reports no taskbar.</returns>
     public Int32Rect? GetTaskbarBounds()
@@ -56,6 +105,17 @@ public sealed class TaskbarService : IDisposable
 
     public void Dispose()
     {
+        // SystemEvents is static: without unsubscribing, it would keep this instance alive.
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
+    }
+
+    /// <summary>Fires for many unrelated preferences, so only a real light/dark switch is passed on.</summary>
+    private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        var isLight = UsesLightTheme();
+        if (isLight == _wasLightTheme) return;
+        _wasLightTheme = isLight;
+        ThemeChanged?.Invoke(this, EventArgs.Empty);
     }
 }

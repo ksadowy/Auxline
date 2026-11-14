@@ -1,0 +1,21 @@
+<UserControl x:Class="Auxline.Controls.ColorWheel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <Grid x:Name="WheelArea" Width="160" Height="160" Background="Transparent" Cursor="Cross"
+              MouseLeftButtonDown="OnWheelMouseDown" MouseMove="OnWheelMouseMove" MouseLeftButtonUp="OnWheelMouseUp">
+            <Image x:Name="WheelImage" />
+            <!-- Darkens the wheel to preview the current brightness. -->
+            <Ellipse x:Name="DarkOverlay" Fill="Black" IsHitTestVisible="False" />
+            <Canvas IsHitTestVisible="False">
+                <!-- White ring with a dark outline: visible on any colour. -->
+                <Grid x:Name="Thumb" Width="16" Height="16">
+                    <Ellipse Stroke="#80000000" StrokeThickness="4" />
+                    <Ellipse Stroke="White" StrokeThickness="2" Margin="1" />
+                </Grid>
+            </Canvas>
+        </Grid>
+        <Slider x:Name="BrightnessSlider" Width="160" Margin="0,8,0,0" Minimum="0" Maximum="1"
+                ToolTip="Brightness" ValueChanged="OnBrightnessChanged" />
+    </StackPanel>
+</UserControl>

@@ -6,18 +6,18 @@ Works with Spotify and any other app that reports to Windows media controls (bro
 
 ---
 
-## Features (planned)
+## Features
 
-- [ ] Compact widget on the taskbar: cover thumbnail, title, artist
-- [ ] Flyout on click: large cover art, play/pause, next/previous, volume slider
-- [ ] Per-app volume control (changes Spotify volume only, not system volume)
-- [ ] Progress bar / seek (if the player reports timeline)
-- [ ] Source selection: choose which apps (Spotify, browsers, etc.) the widget connects to, and their priority
-- [ ] Customization: position, size, colors, fonts, acrylic/blur, corner radius
-- [ ] Auto-hide when a fullscreen app or game is running
-- [ ] Multi-monitor and DPI-aware
-- [ ] Start with Windows
-- [ ] Tray icon with settings and exit
+- [x] Compact widget on the taskbar: cover thumbnail, title, artist (never covers taskbar icons)
+- [x] Flyout on click: large cover art, play/pause, next/previous, volume slider
+- [x] Per-app volume control (changes the playing app's volume only, not system volume)
+- [x] Progress bar / seek (if the player reports timeline)
+- [x] Source selection: choose which apps (Spotify, browsers, etc.) the widget connects to, and their priority
+- [x] Customization: position, size, colors, fonts, acrylic/blur, corner style
+- [x] Auto-hide when a fullscreen app or game is running
+- [ ] Multi-monitor (DPI-aware already)
+- [x] Start with Windows
+- [x] Tray icon with settings and exit
 
 ---
 
@@ -132,16 +132,29 @@ Auxline/
   - Ticks only while the flyout is open and playing; seeks once on release (click or drag)
 
 ### Phase 5 - Polish
-- [ ] Hide when a fullscreen app is running (`SHQueryUserNotificationState`, or compare the foreground window bounds with the monitor bounds)
+- [x] Hide when a fullscreen app is running
+  - App bar registration (`ABM_NEW`, no `ABM_SETPOS`, so no reserved space) → `ABN_FULLSCREENAPP` open/close notifications
+  - `SHQueryUserNotificationState` at startup and after foreground changes as a safety net
 - [x] Hide when nothing is playing (content collapses, window shrinks to zero width)
 - [ ] Handle taskbar auto-hide
 - [ ] Multi-monitor support (choose which taskbar)
-- [ ] Settings window + JSON persistence
-- [ ] Source selection
-  - List every source seen so far (`SourceAppUserModelId`, e.g. `Spotify.exe`, `chrome.exe`)
-  - Toggle each source on/off; disabled sources are skipped when picking the session
-  - User-defined priority order replaces the hardcoded "prefer Spotify" rule
+- [x] Never cover taskbar icons (auto-fit)
+  - Button positions via UI Automation (`Shell_TrayWnd` descendants), measured off the UI thread at startup, on display changes, after an Explorer restart and 800 ms after foreground changes
+  - The widget stays in a free gap; if the offset points into icons it stops right before them; hidden only when no gap has room
+  - Placement uses the last measurement synchronously, so moving the widget never waits for (or races) the query
+- [ ] Option: dock to the right of the icons (needed for left-aligned taskbars)
+- [x] Settings window + JSON persistence (`%AppData%\Auxline\settings.json`, debounced atomic saves, live apply)
+  - [x] Position tab: left offset, max width, cover size (capped to the taskbar height)
+  - [x] Appearance tab: theme, font (searchable list), font sizes, text colour (colour wheel + hex), flyout corners, acrylic
+  - [x] Sources tab: per-app on/off and priority
+  - [x] Follows Windows light/dark switches live (widget, tray icon, flyout)
+- [x] Clicking the widget while the flyout is open closes it (instead of close + reopen)
+- [x] Source selection
+  - Every app seen in GSMTC is listed with its Start-menu name (`shell:AppsFolder`); new ones are appended, enabled
+  - Toggle each source on/off; disabled sources are never shown
+  - User-defined priority order replaces the hardcoded "prefer Spotify" rule (Spotify first by default)
   - Note: filtering is per app, not per site (GSMTC reports `chrome.exe`, not "YouTube")
+- [ ] Design polish pass once features are complete (collect notes here)
 - [x] Autostart via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
   - Respects Task Manager's Startup toggle (`Explorer\StartupApproved\Run`, odd first byte = disabled)
 - [x] Tray icon (start with Windows, debug window, exit; settings once the settings window exists)
@@ -166,7 +179,7 @@ Auxline/
 - **Spotify timeline data** is not continuous, so the progress bar has to be interpolated.
 - **Firefox-based browsers** (Firefox, Zen, LibreWolf…) report the timeline only on pause/resume and clear it on their own, so without help the progress bar appears only after the first pause of each track. Chromium-based browsers report it continuously. Fix: the optional userscript in [Extras](#extras).
 - **Opera / Opera GX** likely won't get volume control: their Start menu entry points to `launcher.exe`, while audio plays from `opera.exe` (untested).
-- **Multiple media sessions.** When a browser and Spotify both play, decide which one to show (prefer Spotify, or the most recently active one).
+- **Multiple media sessions.** When a browser and Spotify both play, the Sources priority list decides; with nothing playing, Windows' current session is shown.
 
 ---
 
@@ -190,6 +203,7 @@ How it works: it calls `navigator.mediaSession.setPositionState()` when media st
 git clone <repo-url>
 cd Auxline
 dotnet run --project Auxline
+dotnet test Auxline.slnx   # unit tests (settings, timeline, taskbar placement)
 ```
 
 ---

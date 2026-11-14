@@ -1,0 +1,281 @@
+<Window x:Class="Auxline.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:Auxline.ViewModels"
+        xmlns:models="clr-namespace:Auxline.Models"
+        xmlns:controls="clr-namespace:Auxline.Controls"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
+        Title="Auxline settings"
+        Width="640" Height="680" MinWidth="540" MinHeight="400"
+        WindowStartupLocation="CenterScreen"
+        ThemeMode="System">
+    <!-- ThemeMode: WPF's Fluent theme (Windows 11 controls, Mica, follows light/dark). -->
+    <Window.Resources>
+        <Style x:Key="SettingTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+        <Style x:Key="SettingHint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="SettingCard" TargetType="Border">
+            <Setter Property="Padding" Value="16,12" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        </Style>
+        <Style x:Key="SettingSlider" TargetType="Slider" BasedOn="{StaticResource {x:Type Slider}}">
+            <Setter Property="Width" Value="180" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="IsSnapToTickEnabled" Value="True" />
+            <Setter Property="TickFrequency" Value="1" />
+        </Style>
+        <Style x:Key="SettingValue" TargetType="TextBlock">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Margin" Value="12,0,0,0" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="TabPage" TargetType="StackPanel">
+            <Setter Property="Margin" Value="0,12,8,0" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="24,16,24,20">
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0" Orientation="Horizontal">
+            <Button Content="Reset to defaults" Command="{Binding ResetToDefaultsCommand}" />
+            <Button Content="Open log folder" Command="{Binding OpenLogFolderCommand}" Margin="8,0,0,0" />
+        </StackPanel>
+
+        <TabControl>
+            <TabItem Header="Position">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Style="{StaticResource TabPage}">
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Slider Style="{StaticResource SettingSlider}" Value="{Binding LeftOffset}"
+                                            Minimum="{x:Static models:LayoutSettings.MinLeftOffset}"
+                                            Maximum="{x:Static models:LayoutSettings.MaxLeftOffset}" />
+                                    <TextBlock Style="{StaticResource SettingValue}" Text="{Binding LeftOffset, StringFormat={}{0:0}}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Distance from the left edge" />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="Move the widget right, e.g. past the Windows Widgets button. It stops before taskbar icons." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Slider Style="{StaticResource SettingSlider}" Value="{Binding MaxWidgetWidth}"
+                                            Minimum="{x:Static models:LayoutSettings.MinWidgetWidth}"
+                                            Maximum="{x:Static models:LayoutSettings.MaxWidgetWidthLimit}" />
+                                    <TextBlock Style="{StaticResource SettingValue}" Text="{Binding MaxWidgetWidth, StringFormat={}{0:0}}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Maximum width" />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="Longer titles are shortened with an ellipsis." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Slider Style="{StaticResource SettingSlider}" Value="{Binding CoverSize}"
+                                            Minimum="{x:Static models:LayoutSettings.MinCoverSize}"
+                                            Maximum="{x:Static models:LayoutSettings.MaxCoverSize}" />
+                                    <TextBlock Style="{StaticResource SettingValue}" Text="{Binding CoverSize, StringFormat={}{0:0}}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Cover size" />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="Album art next to the title. Never taller than the taskbar." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Appearance">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Style="{StaticResource TabPage}">
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Width="180" VerticalAlignment="Center"
+                                          ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Theme" />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="Flyout and this window. The widget always matches the taskbar." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontSize="14"
+                                               Text="{Binding FontFamily}" FontFamily="{Binding FontFamily}" />
+                                    <StackPanel Margin="0,0,16,0">
+                                        <TextBlock Style="{StaticResource SettingTitle}" Text="Font" />
+                                        <TextBlock Style="{StaticResource SettingHint}" Text="Widget and flyout text. Click a font to use it." />
+                                    </StackPanel>
+                                </DockPanel>
+                                <Grid Margin="0,10,0,0">
+                                    <TextBox x:Name="FontSearchBox" Text="{Binding FontSearch, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                                               Opacity="0.5" Text="Search fonts…">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=FontSearchBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                                <!-- A list instead of a dropdown: scrolling or typing can't change the font, only a click. -->
+                                <ListBox Height="200" Margin="0,8,0,0"
+                                         ItemsSource="{Binding FilteredFonts}" SelectedItem="{Binding SelectedFontInList}"
+                                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" FontFamily="{Binding}" FontSize="14" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Slider Style="{StaticResource SettingSlider}" Value="{Binding TitleFontSize}"
+                                            Minimum="{x:Static models:LookSettings.MinFontSize}"
+                                            Maximum="{x:Static models:LookSettings.MaxFontSize}" />
+                                    <TextBlock Style="{StaticResource SettingValue}" Text="{Binding TitleFontSize, StringFormat={}{0:0}}" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource SettingTitle}" VerticalAlignment="Center" Text="Title size" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Slider Style="{StaticResource SettingSlider}" Value="{Binding ArtistFontSize}"
+                                            Minimum="{x:Static models:LookSettings.MinFontSize}"
+                                            Maximum="{x:Static models:LookSettings.MaxFontSize}" />
+                                    <TextBlock Style="{StaticResource SettingValue}" Text="{Binding ArtistFontSize, StringFormat={}{0:0}}" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource SettingTitle}" VerticalAlignment="Center" Text="Artist size" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <CheckBox DockPanel.Dock="Right" Content="Custom" VerticalAlignment="Center"
+                                              IsChecked="{Binding UseCustomTextColor}" />
+                                    <StackPanel Margin="0,0,16,0">
+                                        <TextBlock Style="{StaticResource SettingTitle}" Text="Widget text colour" />
+                                        <TextBlock Style="{StaticResource SettingHint}" Text="Tick Custom to pick a colour. Off: black or white to match the taskbar." />
+                                    </StackPanel>
+                                </DockPanel>
+                                <!-- Always visible (dimmed when off), so the picker is discoverable. -->
+                                <StackPanel Margin="0,12,0,0" Orientation="Horizontal"
+                                            IsEnabled="{Binding UseCustomTextColor}">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Style.Triggers>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Opacity" Value="0.4" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <controls:ColorWheel SelectedColor="{Binding PickerColor}" />
+                                    <StackPanel Margin="20,0,0,0" VerticalAlignment="Top">
+                                        <TextBlock Style="{StaticResource SettingHint}" Text="Code (#RRGGBB)" />
+                                        <TextBox Width="120" Margin="0,4,0,0" HorizontalAlignment="Left"
+                                                 Text="{Binding TextColor, UpdateSourceTrigger=PropertyChanged}" />
+                                        <Border Width="120" Height="40" Margin="0,12,0,0" HorizontalAlignment="Left"
+                                                CornerRadius="4" BorderThickness="1"
+                                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                                Background="{Binding TextColor}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Width="180" VerticalAlignment="Center"
+                                          ItemsSource="{Binding CornerStyles}" SelectedItem="{Binding FlyoutCorners}" />
+                                <TextBlock Style="{StaticResource SettingTitle}" VerticalAlignment="Center" Text="Flyout corners" />
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <CheckBox DockPanel.Dock="Right" VerticalAlignment="Center" IsChecked="{Binding UseAcrylic}" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Acrylic flyout background" />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="Translucent blur. Off: solid background." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Sources">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Style="{StaticResource TabPage}">
+                        <TextBlock Style="{StaticResource SettingHint}" Margin="0,0,0,12"
+                                   Text="Apps that played media, in priority order: when several play at once, the highest one is shown. Unticked apps are never shown. New apps are added at the bottom." />
+                        <ItemsControl x:Name="SourceList" ItemsSource="{Binding Sources}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource SettingCard}">
+                                        <DockPanel>
+                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <StackPanel.Resources>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Setter Property="Width" Value="36" />
+                                                        <Setter Property="Margin" Value="4,0,0,0" />
+                                                        <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+                                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                                    </Style>
+                                                </StackPanel.Resources>
+                                                <Button Content="&#xE70E;" ToolTip="Higher priority"
+                                                        Command="{Binding DataContext.MoveSourceUpCommand, ElementName=SourceList}" />
+                                                <Button Content="&#xE70D;" ToolTip="Lower priority"
+                                                        Command="{Binding DataContext.MoveSourceDownCommand, ElementName=SourceList}" />
+                                                <Button Content="&#xE711;" ToolTip="Forget (it comes back when it plays again)"
+                                                        Command="{Binding DataContext.RemoveSourceCommand, ElementName=SourceList}" />
+                                            </StackPanel>
+                                            <CheckBox DockPanel.Dock="Left" VerticalAlignment="Center" IsChecked="{Binding IsEnabled}" />
+                                            <StackPanel Margin="4,0,16,0" VerticalAlignment="Center">
+                                                <TextBlock Style="{StaticResource SettingTitle}" Text="{Binding DisplayName}" />
+                                                <TextBlock Style="{StaticResource SettingHint}" Text="{Binding AppId}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

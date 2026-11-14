@@ -16,11 +16,12 @@ namespace Auxline.Services;
 /// </summary>
 public sealed class MediaService : IDisposable
 {
-    private const string PreferredAppId = "Spotify";
-
     private readonly SessionManager _manager;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private volatile Session? _session;
+
+    /// <summary>User's source list (priority + on/off); replaced as a whole, read during refreshes.</summary>
+    private volatile IReadOnlyList<SourceEntry> _sources = new AppSettings().Sources;
 
     /// <summary>Raised on a background thread. Null means nothing is playing.</summary>
     public event EventHandler<MediaTrack?>? TrackChanged;
@@ -30,6 +31,9 @@ public sealed class MediaService : IDisposable
     /// Kept separate from <see cref="TrackChanged"/> so it doesn't re-read cover art. Null means no timeline.
     /// </summary>
     public event EventHandler<MediaTimeline?>? TimelineChanged;
+
+    /// <summary>Raised on a background thread with the app IDs of all current sessions, so new sources can be listed.</summary>
+    public event EventHandler<IReadOnlyList<string>>? SourcesSeen;
 
     private MediaService(SessionManager manager)
     {
@@ -61,6 +65,13 @@ public sealed class MediaService : IDisposable
         }
     }
 
+    /// <summary>Applies a changed source list and re-picks the session right away.</summary>
+    public Task SetSourcesAsync(IReadOnlyList<SourceEntry> sources)
+    {
+        _sources = sources;
+        return RefreshAsync();
+    }
+
     public Task<bool> TogglePlayPauseAsync() => SendAsync(s => s.TryTogglePlayPauseAsync());
 
     public Task<bool> SkipNextAsync() => SendAsync(s => s.TrySkipNextAsync());
@@ -78,21 +89,20 @@ public sealed class MediaService : IDisposable
         AttachTo(null);
     }
 
-    /// <summary>Playing Spotify, then any playing session, then Windows' current session.</summary>
+    /// <summary>Follows the user's source list; see <see cref="SourcePicker.Pick"/> for the rules.</summary>
     private Session? PickSession()
     {
-        var playing = _manager.GetSessions().Where(IsPlaying).ToList();
-        return playing.FirstOrDefault(IsPreferredApp)
-            ?? playing.FirstOrDefault()
-            ?? _manager.GetCurrentSession();
+        var sessions = _manager.GetSessions();
+        var infos = sessions.Select(session => new SessionInfo(session.SourceAppUserModelId, IsPlaying(session))).ToList();
+        SourcesSeen?.Invoke(this, infos.Select(info => info.AppId).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+
+        var index = SourcePicker.Pick(infos, _manager.GetCurrentSession()?.SourceAppUserModelId, _sources);
+        return index is { } i ? sessions[i] : null;
     }
 
     private static bool IsPlaying(Session session) =>
         session.GetPlaybackInfo().PlaybackStatus ==
         GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
-
-    private static bool IsPreferredApp(Session session) =>
-        session.SourceAppUserModelId.Contains(PreferredAppId, StringComparison.OrdinalIgnoreCase);
 
     private void AttachTo(Session? session)
     {
