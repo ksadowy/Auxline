@@ -4,11 +4,13 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Auxline.Controls;
 using Auxline.Interop;
 using Auxline.Models;
 using Auxline.Services;
 using Auxline.ViewModels;
 using Auxline.Views.FlyoutStyles;
+using Auxline.Views.Themes;
 using static Auxline.Interop.NativeMethods;
 
 namespace Auxline.Views;
@@ -31,13 +33,14 @@ public partial class FlyoutWindow : Window
     /// <summary>Each style names its seek bar this way; the window handles seeking for all of them.</summary>
     private const string ProgressSliderName = "ProgressSlider";
 
-    /// <summary>Used when acrylic is off or unsupported; same tints as Windows 11 flyouts.</summary>
-    private static readonly Brush LightSolidBackground = Freeze(new SolidColorBrush(Color.FromRgb(0xF3, 0xF3, 0xF3)));
-    private static readonly Brush DarkSolidBackground = Freeze(new SolidColorBrush(Color.FromRgb(0x20, 0x20, 0x20)));
-
     private LookSettings _look = new();
+    private FlyoutThemeTraits _traits = FlyoutThemes.TraitsOf(FlyoutTheme.Default);
+    /// <summary>The flyout's effective light/dark: the setting, unless the theme has a fixed palette.</summary>
     private bool _isLight;
     private FlyoutStyle? _appliedStyle;
+    private (FlyoutTheme Theme, bool IsLight)? _appliedTheme;
+    /// <summary>The current theme's dictionary (merged into the window's resources).</summary>
+    private ResourceDictionary _themeResources = new();
     private IntPtr _handle;
     private Rect _anchor;
     private TaskbarEdge _taskbarEdge = TaskbarEdge.Bottom;
@@ -50,6 +53,7 @@ public partial class FlyoutWindow : Window
     public FlyoutWindow()
     {
         InitializeComponent();
+        SetResourceReference(ForegroundProperty, "FlyoutForegroundBrush");
 
         SourceInitialized += OnSourceInitialized;
         Deactivated += (_, _) =>
@@ -60,7 +64,11 @@ public partial class FlyoutWindow : Window
         KeyDown += OnKeyDown;
         PreviewMouseLeftButtonDown += OnPreviewMouseDown;
         PreviewMouseLeftButtonUp += OnPreviewMouseUp;
-        IsVisibleChanged += (_, _) => Player.SetProgressShown(IsVisible);
+        IsVisibleChanged += (_, _) =>
+        {
+            Player.SetProgressShown(IsVisible);
+            UpdateThemeAnimation();
+        };
         DataContextChanged += OnDataContextChanged;
         // Content can grow while open (e.g. the progress bar appears); keep the edge facing the widget in place.
         SizeChanged += (_, e) =>
@@ -74,11 +82,19 @@ public partial class FlyoutWindow : Window
     public void ApplyLook(LookSettings look, bool isLight)
     {
         _look = look;
-        _isLight = isLight;
-        Foreground = isLight ? Brushes.Black : Brushes.White;
-        FontFamily = new FontFamily(look.FontFamily);
-        FlyoutPalette.Apply(Resources, isLight);
-        FlyoutPalette.ApplyCover(Resources, (DataContext as PlayerViewModel)?.CoverColor, isLight);
+        _traits = FlyoutThemes.TraitsOf(look.FlyoutTheme);
+        _isLight = _traits.IsLight ?? isLight;
+        FontFamily = _traits.Font ?? new FontFamily(look.FontFamily);
+
+        // Swapping the theme re-applies every template: only when it changes, not on every settings change.
+        if (_appliedTheme != (look.FlyoutTheme, _isLight))
+        {
+            _appliedTheme = (look.FlyoutTheme, _isLight);
+            _themeResources = FlyoutThemes.CreateResources(look.FlyoutTheme, _isLight);
+            Resources.MergedDictionaries.Clear();
+            Resources.MergedDictionaries.Add(_themeResources);
+            ApplyCoverColors();
+        }
 
         // Recreate the layout only when the style changes: rebuilding resets things like the compact volume toggle.
         if (look.FlyoutStyle != _appliedStyle)
@@ -95,11 +111,33 @@ public partial class FlyoutWindow : Window
         if (e.NewValue is PlayerViewModel newPlayer) newPlayer.PropertyChanged += OnPlayerPropertyChanged;
     }
 
-    /// <summary>A new track's cover recolours the cover-tinted style.</summary>
     private void OnPlayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(PlayerViewModel.CoverColor)) FlyoutPalette.ApplyCover(Resources, Player.CoverColor, _isLight);
+        switch (e.PropertyName)
+        {
+            case nameof(PlayerViewModel.CoverColor):
+                ApplyCoverColors();
+                break;
+            case nameof(PlayerViewModel.IsPlaying):
+                UpdateThemeAnimation();
+                break;
+            case nameof(PlayerViewModel.Title) when IsVisible:
+                ThemeFrame.RaiseEvent(new RoutedEventArgs(ThemeAnimation.TrackChangedEvent));
+                break;
+        }
     }
+
+    /// <summary>
+    /// The cover-tinted style's colours from the album art, unless the theme has a fixed palette (which defines them).
+    /// Written into the theme's dictionary, so switching themes drops them.
+    /// </summary>
+    private void ApplyCoverColors()
+    {
+        if (_traits.IsLight is null) FlyoutPalette.ApplyCover(_themeResources, (DataContext as PlayerViewModel)?.CoverColor, _isLight);
+    }
+
+    /// <summary>Theme animations loop only while they can be seen and the music plays.</summary>
+    private void UpdateThemeAnimation() => ThemeAnimation.SetIsActive(this, IsVisible && Player.IsPlaying);
 
     /// <param name="anchor">Widget bounds in DIPs.</param>
     /// <param name="taskbarEdge">The flyout opens on the side facing away from it (above a bottom taskbar, etc.).</param>
@@ -186,18 +224,14 @@ public partial class FlyoutWindow : Window
 
     private void ApplyFrame()
     {
-        var hasAcrylic = WindowBackdrop.Apply(_handle, isDark: !_isLight, _look.FlyoutCorners, _look.UseAcrylic);
-        Background = hasAcrylic ? Brushes.Transparent : _isLight ? LightSolidBackground : DarkSolidBackground;
+        var useAcrylic = _traits.UsesSystemBackdrop && _look.UseAcrylic;
+        var hasAcrylic = WindowBackdrop.Apply(_handle, isDark: !_isLight, _traits.Corners ?? _look.FlyoutCorners, useAcrylic);
+        if (hasAcrylic) Background = Brushes.Transparent;
+        else SetResourceReference(BackgroundProperty, "FlyoutBackgroundBrush");
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape) Hide();
-    }
-
-    private static Brush Freeze(Brush brush)
-    {
-        brush.Freeze();
-        return brush;
     }
 }

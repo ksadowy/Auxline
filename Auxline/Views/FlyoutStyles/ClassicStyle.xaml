@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Auxline.ViewModels"
+             xmlns:controls="clr-namespace:Auxline.Controls"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:PlayerViewModel}"
              Width="320">
@@ -19,11 +20,7 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Width="72" Height="72" CornerRadius="6">
-                <Border.Background>
-                    <ImageBrush ImageSource="{Binding Cover}" Stretch="UniformToFill" />
-                </Border.Background>
-            </Border>
+            <controls:CoverArt Width="72" Height="72" CornerRadius="6" Source="{Binding Cover}" />
 
             <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource Trimmed}" Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" />
@@ -49,16 +46,19 @@
         </Grid>
 
         <StackPanel Margin="0,8,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
-            <Button Style="{StaticResource IconButton}" Command="{Binding SkipPreviousCommand}" ToolTip="Previous" Content="&#xE892;" />
-            <Button Style="{StaticResource IconButton}" Margin="8,0" Command="{Binding TogglePlayPauseCommand}" ToolTip="Play / Pause">
-                <TextBlock Style="{StaticResource PlayPauseGlyph}" />
+            <Button Style="{StaticResource IconButton}" Command="{Binding SkipPreviousCommand}" ToolTip="Previous">
+                <controls:ThemedIcon Kind="Previous" />
             </Button>
-            <Button Style="{StaticResource IconButton}" Command="{Binding SkipNextCommand}" ToolTip="Next" Content="&#xE893;" />
+            <Button Style="{StaticResource IconButton}" Margin="8,0" Command="{Binding TogglePlayPauseCommand}" ToolTip="Play / Pause">
+                <controls:ThemedIcon Style="{StaticResource PlayPauseIcon}" />
+            </Button>
+            <Button Style="{StaticResource IconButton}" Command="{Binding SkipNextCommand}" ToolTip="Next">
+                <controls:ThemedIcon Kind="Next" />
+            </Button>
         </StackPanel>
 
         <DockPanel Margin="0,8,0,0">
-            <TextBlock DockPanel.Dock="Left" Margin="0,0,8,0" VerticalAlignment="Center"
-                       FontFamily="{StaticResource IconFont}" Text="&#xE767;" />
+            <controls:ThemedIcon Kind="Volume" DockPanel.Dock="Left" Margin="0,0,8,0" VerticalAlignment="Center" />
             <TextBlock DockPanel.Dock="Right" Width="36" TextAlignment="Right" VerticalAlignment="Center"
                        Text="{Binding VolumePercent, StringFormat={}{0:0}%}" />
             <Slider Style="{StaticResource FlyoutSlider}" Minimum="0" Maximum="100"

@@ -5,13 +5,16 @@ using Auxline.Controls;
 namespace Auxline.Views.FlyoutStyles;
 
 /// <summary>
-/// The colours flyout styles use (DynamicResource keys, see FlyoutResources.xaml) for light and dark.
-/// This is where themes plug in later: a theme is another set of these values.
+/// The colours flyout styles use (DynamicResource keys, see FlyoutResources.xaml): the default theme's, for light
+/// and dark (other themes define the same keys in their XAML), plus the cover-derived ones every theme gets.
 /// </summary>
 internal static class FlyoutPalette
 {
     public static void Apply(ResourceDictionary resources, bool isLight)
     {
+        Set(resources, "FlyoutForegroundBrush", isLight ? "#000000" : "#FFFFFF");
+        // Shown when acrylic is off or unsupported; same tints as Windows 11 flyouts.
+        Set(resources, "FlyoutBackgroundBrush", isLight ? "#F3F3F3" : "#202020");
         Set(resources, "FlyoutSecondaryTextBrush", isLight ? "#3A3A3A" : "#D0D0D0");
         Set(resources, "FlyoutTertiaryTextBrush", isLight ? "#5C5C5C" : "#A8A8A8");
         Set(resources, "FlyoutTrackBrush", isLight ? "#38000000" : "#4DFFFFFF");

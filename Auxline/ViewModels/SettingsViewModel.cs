@@ -90,6 +90,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private FlyoutStyle _flyoutStyle;
 
     [ObservableProperty]
+    private FlyoutTheme _flyoutTheme;
+
+    [ObservableProperty]
     private CornerStyle _flyoutCorners;
 
     [ObservableProperty]
@@ -109,6 +112,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         new(FlyoutStyle.CoverTinted, "Cover-tinted"),
         new(FlyoutStyle.Compact, "Compact"),
         new(FlyoutStyle.Minimalist, "Minimalist"),
+    ];
+
+    public IReadOnlyList<Choice<FlyoutTheme>> FlyoutThemeOptions { get; } =
+    [
+        new(FlyoutTheme.Default, "Default (Windows 11)"),
+        new(FlyoutTheme.GameBoy, "Pixel · Game Boy"),
     ];
 
     public IReadOnlyList<ThemePreference> Themes { get; } = Enum.GetValues<ThemePreference>();
@@ -218,6 +227,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     partial void OnFlyoutStyleChanged(FlyoutStyle value) => UpdateLook(look => look with { FlyoutStyle = value });
 
+    partial void OnFlyoutThemeChanged(FlyoutTheme value) => UpdateLook(look => look with { FlyoutTheme = value });
+
     partial void OnFlyoutCornersChanged(CornerStyle value) => UpdateLook(look => look with { FlyoutCorners = value });
 
     partial void OnUseAcrylicChanged(bool value) => UpdateLook(look => look with { UseAcrylic = value });
@@ -278,6 +289,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         UseCustomTextColor = settings.Look.TextColor is not null;
         TextColor = settings.Look.TextColor ?? DefaultCustomTextColor;
         FlyoutStyle = settings.Look.FlyoutStyle;
+        FlyoutTheme = settings.Look.FlyoutTheme;
         FlyoutCorners = settings.Look.FlyoutCorners;
         UseAcrylic = settings.Look.UseAcrylic;
         LoadSources(settings.Sources);

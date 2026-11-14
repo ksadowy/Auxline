@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Auxline.ViewModels"
+             xmlns:controls="clr-namespace:Auxline.Controls"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:PlayerViewModel}"
              Width="320">
@@ -19,11 +20,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Border Width="96" Height="96" CornerRadius="8">
-                    <Border.Background>
-                        <ImageBrush ImageSource="{Binding Cover}" Stretch="UniformToFill" />
-                    </Border.Background>
-                </Border>
+                <controls:CoverArt Width="96" Height="96" CornerRadius="8" Source="{Binding Cover}" />
                 <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="NOW PLAYING" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource CoverAccentBrush}" />
                     <TextBlock Style="{StaticResource Trimmed}" Margin="0,3,0,0" Text="{Binding Title}" FontSize="17" FontWeight="Bold" />
@@ -55,18 +52,22 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="44" />
                 </Grid.ColumnDefinitions>
-                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE767;" FontSize="16"
-                           HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource CoverSecondaryTextBrush}" />
+                <controls:ThemedIcon Kind="Volume" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     Foreground="{DynamicResource CoverSecondaryTextBrush}" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
                     <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource CoverTextBrush}"
-                            Command="{Binding SkipPreviousCommand}" ToolTip="Previous" Content="&#xE892;" FontSize="18" />
+                            Command="{Binding SkipPreviousCommand}" ToolTip="Previous" FontSize="18">
+                        <controls:ThemedIcon Kind="Previous" />
+                    </Button>
                     <Button Style="{StaticResource PrimaryButton}" Margin="12,0" Width="52" Height="52" FontSize="20"
                             Background="{DynamicResource CoverAccentBrush}" Foreground="{DynamicResource CoverAccentForegroundBrush}"
                             Command="{Binding TogglePlayPauseCommand}" ToolTip="Play / Pause">
-                        <TextBlock Style="{StaticResource PlayPauseGlyph}" />
+                        <controls:ThemedIcon Style="{StaticResource PlayPauseIcon}" />
                     </Button>
                     <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource CoverTextBrush}"
-                            Command="{Binding SkipNextCommand}" ToolTip="Next" Content="&#xE893;" FontSize="18" />
+                            Command="{Binding SkipNextCommand}" ToolTip="Next" FontSize="18">
+                        <controls:ThemedIcon Kind="Next" />
+                    </Button>
                 </StackPanel>
                 <TextBlock Grid.Column="2" Text="{Binding VolumePercent, StringFormat={}{0:0}%}" FontSize="12"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource CoverSecondaryTextBrush}" />

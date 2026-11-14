@@ -113,6 +113,19 @@ public enum FlyoutStyle
     Minimalist,
 }
 
+/// <summary>
+/// The flyout's look (colours, font, control shapes, animations), applied to whichever <see cref="FlyoutStyle"/>
+/// layout is chosen. Designs on the "Auxline – flyout styles" canvas.
+/// </summary>
+public enum FlyoutTheme
+{
+    /// <summary>Windows 11 look: follows light/dark, acrylic, the chosen font and corners.</summary>
+    Default,
+
+    /// <summary>Four-shade green handheld LCD, pixel font, blocky controls.</summary>
+    GameBoy,
+}
+
 public enum CornerStyle
 {
     Round,
@@ -141,6 +154,8 @@ public sealed partial record LookSettings
 
     public FlyoutStyle FlyoutStyle { get; init; } = FlyoutStyle.Classic;
 
+    public FlyoutTheme FlyoutTheme { get; init; } = FlyoutTheme.Default;
+
     public CornerStyle FlyoutCorners { get; init; } = CornerStyle.Round;
 
     public bool UseAcrylic { get; init; } = true;
@@ -153,6 +168,7 @@ public sealed partial record LookSettings
         ArtistFontSize = SettingsMath.ClampOrDefault(ArtistFontSize, MinFontSize, MaxFontSize, 11),
         TextColor = IsHexColor(TextColor) ? TextColor!.ToUpperInvariant() : null,
         FlyoutStyle = Enum.IsDefined(FlyoutStyle) ? FlyoutStyle : FlyoutStyle.Classic,
+        FlyoutTheme = Enum.IsDefined(FlyoutTheme) ? FlyoutTheme : FlyoutTheme.Default,
         FlyoutCorners = Enum.IsDefined(FlyoutCorners) ? FlyoutCorners : CornerStyle.Round,
     };
 

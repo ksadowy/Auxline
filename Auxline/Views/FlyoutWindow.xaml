@@ -20,6 +20,11 @@
         <WindowChrome CaptionHeight="0" GlassFrameThickness="-1" ResizeBorderThickness="0" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
-    <!-- The chosen layout from Views/FlyoutStyles is placed here (see FlyoutWindow.ApplyLook); each sets its width. -->
-    <ContentControl x:Name="StyleHost" Focusable="False" />
+    <!--
+        The theme's frame (Views/Themes, e.g. an outline or overlays) around the chosen layout from Views/FlyoutStyles
+        (see FlyoutWindow.ApplyLook); each layout sets its width.
+    -->
+    <ContentControl x:Name="ThemeFrame" Focusable="False" Template="{DynamicResource FlyoutFrameTemplate}">
+        <ContentControl x:Name="StyleHost" Focusable="False" />
+    </ContentControl>
 </Window>

@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Auxline.ViewModels"
+             xmlns:controls="clr-namespace:Auxline.Controls"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:PlayerViewModel}"
              Width="320">
@@ -14,8 +15,7 @@
     <!-- Like Windows' own media flyout: app name, title left / cover right, accent-coloured play button. -->
     <StackPanel Margin="16,12,16,12">
         <StackPanel Orientation="Horizontal">
-            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8D6;" FontSize="12" VerticalAlignment="Center"
-                       Foreground="{DynamicResource FlyoutAccentBrush}" />
+            <controls:ThemedIcon Kind="Music" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource FlyoutAccentBrush}" />
             <TextBlock Margin="8,0,0,0" Text="{Binding SourceName}" FontSize="12" VerticalAlignment="Center"
                        Foreground="{DynamicResource FlyoutSecondaryTextBrush}" />
         </StackPanel>
@@ -30,11 +30,7 @@
                 <TextBlock Style="{StaticResource Trimmed}" Margin="0,2,0,0" Text="{Binding Artist}" FontSize="13"
                            Foreground="{DynamicResource FlyoutSecondaryTextBrush}" />
             </StackPanel>
-            <Border Grid.Column="1" Width="80" Height="80" CornerRadius="4">
-                <Border.Background>
-                    <ImageBrush ImageSource="{Binding Cover}" Stretch="UniformToFill" />
-                </Border.Background>
-            </Border>
+            <controls:CoverArt Grid.Column="1" Width="80" Height="80" CornerRadius="4" Source="{Binding Cover}" />
         </Grid>
 
         <StackPanel Margin="0,12,0,0" Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}">
@@ -49,20 +45,23 @@
 
         <StackPanel Margin="0,8,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
             <Button Style="{StaticResource IconButton}" Command="{Binding SkipPreviousCommand}" ToolTip="Previous"
-                    Content="&#xE892;" FontSize="18" />
+                    FontSize="18">
+                <controls:ThemedIcon Kind="Previous" />
+            </Button>
             <Button Style="{StaticResource PrimaryButton}" Margin="16,0" Width="44" Height="44"
                     Background="{DynamicResource FlyoutAccentBrush}" Foreground="{DynamicResource FlyoutAccentForegroundBrush}"
                     Command="{Binding TogglePlayPauseCommand}" ToolTip="Play / Pause">
-                <TextBlock Style="{StaticResource PlayPauseGlyph}" />
+                <controls:ThemedIcon Style="{StaticResource PlayPauseIcon}" />
             </Button>
             <Button Style="{StaticResource IconButton}" Command="{Binding SkipNextCommand}" ToolTip="Next"
-                    Content="&#xE893;" FontSize="18" />
+                    FontSize="18">
+                <controls:ThemedIcon Kind="Next" />
+            </Button>
         </StackPanel>
 
         <Border Margin="0,8,0,0" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource FlyoutSeparatorBrush}" Padding="0,8,0,0">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Left" Margin="0,0,10,0" VerticalAlignment="Center"
-                           FontFamily="{StaticResource IconFont}" Text="&#xE767;" />
+                <controls:ThemedIcon Kind="Volume" DockPanel.Dock="Left" Margin="0,0,10,0" VerticalAlignment="Center" />
                 <TextBlock DockPanel.Dock="Right" Width="32" TextAlignment="Right" VerticalAlignment="Center"
                            Text="{Binding VolumePercent, StringFormat={}{0:0}}" Foreground="{DynamicResource FlyoutSecondaryTextBrush}" />
                 <Slider Style="{StaticResource FlyoutSlider}" Foreground="{DynamicResource FlyoutAccentBrush}"

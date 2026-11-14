@@ -173,10 +173,14 @@ Auxline/
   - [x] Flyout styles, selectable in Appearance: Classic, Native Windows 11, Big cover, Cover-tinted, Compact, Minimalist
     - Minimalist: one line for progress or volume (speaker toggle or mouse wheel, back to progress after 3 s), system accent colour; narrower (280 vs 320), so each style sets its own width
     - Designed on a Claude Design canvas first; one XAML `UserControl` per style (`Views/FlyoutStyles/`), shared building blocks in `FlyoutResources.xaml`
-    - Colours are named brushes set per light/dark by `FlyoutPalette`; this is where themes plug in
     - Native: Windows' accent colour (`SystemColors.AccentColorLight2/Dark1`); Cover-tinted: dominant colour of the album art (`CoverPalette`, contrast ≥ 3:1 tested)
-    - Every style rendered in both themes by a test (`FlyoutStyleRenderTests`; `AUXLINE_RENDER_DIR` saves PNGs)
-  - [ ] Themes (colour sets for widget + flyout)
+  - [ ] Flyout themes (the look, applied to every style): Default + Pixel · Game Boy done; Arcade, Vinyl, Terminal, Orbit next
+    - One `ResourceDictionary` per theme (`Views/Themes/`) merged into the flyout window: colours, control templates (buttons, sliders), `ThemedIcon` icons, `CoverArt` frame, and a frame template around the layout. Styles only use `DynamicResource` keys, so a theme swaps everything live
+    - Default: Windows 11 look, colours from `FlyoutPalette` (light/dark, system accent). Other themes have a fixed palette, their own font, corners and background (acrylic off) — `FlyoutThemeTraits`
+    - Game Boy: four LCD greens, Silkscreen pixel font (bundled, SIL OFL), pixel-art icons, square keys with a hard shadow, progress/volume as blocks (`SegmentBar`)
+    - Animations run only while the flyout is visible and music plays (`ThemeAnimation.IsActive`); one-shot transitions on track change (`ThemeAnimation.TrackChanged`). Game Boy: blinking progress block, fade-in through the shades
+    - Every style × theme × light/dark rendered by a test, and every theme's animations started once (`FlyoutStyleRenderTests`; `AUXLINE_RENDER_DIR` saves PNGs)
+  - [ ] Music meter in the widget, styled per theme, driven by the playing app's loudness (WASAPI peak meter)
 - [x] Autostart via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
   - Respects Task Manager's Startup toggle (`Explorer\StartupApproved\Run`, odd first byte = disabled)
 - [x] Tray icon (start with Windows, debug window, exit; settings once the settings window exists)

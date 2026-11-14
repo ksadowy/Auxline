@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Auxline.ViewModels"
+             xmlns:controls="clr-namespace:Auxline.Controls"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:PlayerViewModel}"
              Width="320">
@@ -19,11 +20,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Border Width="52" Height="52" CornerRadius="6">
-                <Border.Background>
-                    <ImageBrush ImageSource="{Binding Cover}" Stretch="UniformToFill" />
-                </Border.Background>
-            </Border>
+            <controls:CoverArt Width="52" Height="52" CornerRadius="6" Source="{Binding Cover}" />
             <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource Trimmed}" Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" />
                 <TextBlock Style="{StaticResource Trimmed}" FontSize="12" Foreground="{DynamicResource FlyoutSecondaryTextBrush}">
@@ -33,12 +30,16 @@
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Style="{StaticResource PrimaryButton}" Width="40" Height="40" FontSize="16"
                         Command="{Binding TogglePlayPauseCommand}" ToolTip="Play / Pause">
-                    <TextBlock Style="{StaticResource PlayPauseGlyph}" />
+                    <controls:ThemedIcon Style="{StaticResource PlayPauseIcon}" />
                 </Button>
                 <Button Style="{StaticResource IconButton}" Margin="4,0,0,0" Width="40" Height="40"
-                        Command="{Binding SkipNextCommand}" ToolTip="Next" Content="&#xE893;" />
+                        Command="{Binding SkipNextCommand}" ToolTip="Next">
+                    <controls:ThemedIcon Kind="Next" />
+                </Button>
                 <ToggleButton x:Name="VolumeToggle" Style="{StaticResource IconButton}" Width="40" Height="40"
-                              ToolTip="Volume" Content="&#xE767;" Foreground="{DynamicResource FlyoutSecondaryTextBrush}" />
+                              ToolTip="Volume" Foreground="{DynamicResource FlyoutSecondaryTextBrush}">
+                    <controls:ThemedIcon Kind="Volume" />
+                </ToggleButton>
             </StackPanel>
         </Grid>
 

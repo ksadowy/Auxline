@@ -36,10 +36,11 @@ public sealed class LookSettingsTests
     [Fact]
     public void Normalize_UndefinedEnums_FallBackToDefaults()
     {
-        var look = new LookSettings { Theme = (ThemePreference)42, FlyoutCorners = (CornerStyle)42 }.Normalize();
+        var look = new LookSettings { Theme = (ThemePreference)42, FlyoutCorners = (CornerStyle)42, FlyoutTheme = (FlyoutTheme)42 }.Normalize();
 
         Assert.Equal(ThemePreference.System, look.Theme);
         Assert.Equal(CornerStyle.Round, look.FlyoutCorners);
+        Assert.Equal(FlyoutTheme.Default, look.FlyoutTheme);
     }
 
     [Fact]

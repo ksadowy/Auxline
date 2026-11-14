@@ -144,10 +144,23 @@
 
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Width="200" VerticalAlignment="Center"
+                                          ItemsSource="{Binding FlyoutThemeOptions}" DisplayMemberPath="Label"
+                                          SelectedValuePath="Value" SelectedValue="{Binding FlyoutTheme}" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Flyout theme" />
+                                    <TextBlock Style="{StaticResource SettingHint}"
+                                               Text="Colours, font and controls of the flyout, for any style. Themes other than Default bring their own font, corners and background." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
                                 <ComboBox DockPanel.Dock="Right" Width="180" VerticalAlignment="Center"
                                           ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" />
                                 <StackPanel Margin="0,0,16,0">
-                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Theme" />
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Light / dark" />
                                     <TextBlock Style="{StaticResource SettingHint}" Text="Flyout and this window. The widget always matches the taskbar." />
                                 </StackPanel>
                             </DockPanel>

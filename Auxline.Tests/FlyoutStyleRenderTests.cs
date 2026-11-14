@@ -1,80 +1,105 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Auxline.Controls;
 using Auxline.Models;
-using Auxline.Views.FlyoutStyles;
+using Auxline.Views;
 
 namespace Auxline.Tests;
 
 /// <summary>
-/// Renders every flyout style with sample data. XAML mistakes (bad resource keys, templates, bindings that throw)
-/// only surface at runtime, so this catches them for all styles, not just the one the app starts with.
+/// Renders every flyout style in every theme with sample data, in the real (never shown) flyout window. XAML
+/// mistakes (bad resource keys, templates, bindings that throw) only surface at runtime, so this catches them for
+/// all combinations, not just the one the app starts with.
 /// Set AUXLINE_RENDER_DIR to also save the renders as PNGs for a visual check.
 /// </summary>
 public sealed class FlyoutStyleRenderTests
 {
-    public static TheoryData<FlyoutStyle, bool> Cases()
+    public static TheoryData<FlyoutStyle, FlyoutTheme, bool> Cases()
     {
-        var data = new TheoryData<FlyoutStyle, bool>();
+        var data = new TheoryData<FlyoutStyle, FlyoutTheme, bool>();
         foreach (var style in Enum.GetValues<FlyoutStyle>())
+        foreach (var theme in Enum.GetValues<FlyoutTheme>())
         {
-            data.Add(style, false);
-            data.Add(style, true);
+            data.Add(style, theme, false);
+            data.Add(style, theme, true);
         }
         return data;
     }
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public void Renders(FlyoutStyle style, bool isLight)
+    public void Renders(FlyoutStyle style, FlyoutTheme theme, bool isLight)
     {
-        Size size = default;
-        RunOnStaThread(() => size = Render(style, isLight));
+        double layoutWidth = 0, height = 0;
+        RunOnStaThread(() => (layoutWidth, height) = Render(style, theme, isLight));
 
-        Assert.Equal(style == FlyoutStyle.Minimalist ? 280 : 320, size.Width);
-        Assert.InRange(size.Height, 60, 600);
+        Assert.Equal(style == FlyoutStyle.Minimalist ? 280 : 320, layoutWidth);
+        Assert.InRange(height, 60, 620);
     }
 
-    private static Size Render(FlyoutStyle style, bool isLight)
+    /// <summary>Storyboards resolve their targets only when they start: start every theme's animations once.</summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void AnimationsStart(FlyoutTheme theme)
+    {
+        RunOnStaThread(() =>
+        {
+            var window = CreateWindow(FlyoutStyle.Classic, theme, isLight: false);
+            var content = (FrameworkElement)window.Content;
+            content.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            content.Arrange(new Rect(content.DesiredSize));
+
+            ThemeAnimation.SetIsActive(window, true);
+            window.ThemeFrame.RaiseEvent(new RoutedEventArgs(ThemeAnimation.TrackChangedEvent));
+            content.UpdateLayout();
+            ThemeAnimation.SetIsActive(window, false);
+            window.Close();
+        });
+    }
+
+    public static TheoryData<FlyoutTheme> Themes() => new(Enum.GetValues<FlyoutTheme>());
+
+    private static FlyoutWindow CreateWindow(FlyoutStyle style, FlyoutTheme theme, bool isLight)
     {
         if (Application.Current is null) _ = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         Application.Current!.Resources["BoolToVisibility"] = new BooleanToVisibilityConverter();
 
-        var content = FlyoutStyleFactory.Create(style);
-
-        // A never-shown window as host: the styles bind to their Window's Foreground and read its palette.
-        var host = new Border
-        {
-            Background = new SolidColorBrush(isLight ? Color.FromRgb(0xF3, 0xF3, 0xF3) : Color.FromRgb(0x20, 0x20, 0x20)),
-            Child = content,
-        };
-        var window = new Window
-        {
-            Content = host,
-            Foreground = isLight ? Brushes.Black : Brushes.White,
-            FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI"),
-            DataContext = new SamplePlayer(),
-        };
-        FlyoutPalette.Apply(window.Resources, isLight);
-        FlyoutPalette.ApplyCover(window.Resources, Color.FromRgb(196, 106, 46), isLight);
-
-        host.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        host.Arrange(new Rect(host.DesiredSize));
-        host.UpdateLayout();
-        SaveIfRequested(host, $"{style}-{(isLight ? "light" : "dark")}.png");
-        window.Close();
-        return host.RenderSize;
+        // The styles bind to their window's Foreground and read its theme resources.
+        var window = new FlyoutWindow { DataContext = new SamplePlayer() };
+        window.ApplyLook(new LookSettings { FlyoutStyle = style, FlyoutTheme = theme }, isLight);
+        return window;
     }
 
-    private static void SaveIfRequested(FrameworkElement element, string fileName)
+    /// <returns>The layout's width and the whole content's height (layout plus the theme's frame).</returns>
+    private static (double LayoutWidth, double Height) Render(FlyoutStyle style, FlyoutTheme theme, bool isLight)
+    {
+        var window = CreateWindow(style, theme, isLight);
+        var content = (FrameworkElement)window.Content;
+        content.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        content.Arrange(new Rect(content.DesiredSize));
+        content.UpdateLayout();
+        SaveIfRequested(content, (Brush)window.FindResource("FlyoutBackgroundBrush"), $"{style}-{theme}-{(isLight ? "light" : "dark")}.png");
+
+        var layout = (FrameworkElement)window.StyleHost.Content;
+        var size = (layout.ActualWidth, content.ActualHeight);
+        window.Close();
+        return size;
+    }
+
+    private static void SaveIfRequested(FrameworkElement element, Brush background, string fileName)
     {
         var directory = Environment.GetEnvironmentVariable("AUXLINE_RENDER_DIR");
         if (string.IsNullOrEmpty(directory)) return;
 
-        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth), (int)Math.Ceiling(element.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        var (width, height) = ((int)Math.Ceiling(element.ActualWidth), (int)Math.Ceiling(element.ActualHeight));
+        var backdrop = new DrawingVisual();
+        using (var context = backdrop.RenderOpen()) context.DrawRectangle(background, null, new Rect(0, 0, width, height));
+
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(backdrop);
         bitmap.Render(element);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));

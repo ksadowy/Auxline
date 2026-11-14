@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Auxline.ViewModels"
+             xmlns:controls="clr-namespace:Auxline.Controls"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:PlayerViewModel}"
              Width="280">
@@ -36,19 +37,17 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Border Width="44" Height="44" CornerRadius="8">
-                <Border.Background>
-                    <ImageBrush ImageSource="{Binding Cover}" Stretch="UniformToFill" />
-                </Border.Background>
-            </Border>
+            <controls:CoverArt Width="44" Height="44" CornerRadius="8" Source="{Binding Cover}" />
             <StackPanel Grid.Column="1" Margin="12,0,4,0" VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource Trimmed}" Text="{Binding Title}" FontSize="14" FontWeight="Medium" />
                 <TextBlock Style="{StaticResource Trimmed}" Margin="0,2,0,0" Text="{Binding Artist}" FontSize="12"
                            Foreground="{DynamicResource FlyoutSecondaryTextBrush}" />
             </StackPanel>
             <ToggleButton x:Name="VolumeToggle" Grid.Column="2" Style="{StaticResource SpeakerToggle}"
-                          Content="&#xE767;" FontSize="14" ToolTip="Volume"
-                          Checked="OnVolumeToggleChanged" Unchecked="OnVolumeToggleChanged" />
+                          FontSize="14" ToolTip="Volume"
+                          Checked="OnVolumeToggleChanged" Unchecked="OnVolumeToggleChanged">
+                <controls:ThemedIcon Kind="Volume" />
+            </ToggleButton>
         </Grid>
 
         <Grid Margin="0,14,12,0" Height="20">
@@ -67,13 +66,17 @@
 
         <StackPanel Margin="0,8,12,0" Orientation="Horizontal" HorizontalAlignment="Center">
             <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource FlyoutSecondaryTextBrush}"
-                    Command="{Binding SkipPreviousCommand}" ToolTip="Previous" Content="&#xE892;" />
+                    Command="{Binding SkipPreviousCommand}" ToolTip="Previous">
+                <controls:ThemedIcon Kind="Previous" />
+            </Button>
             <Button Style="{StaticResource IconButton}" Margin="16,0" Foreground="{DynamicResource FlyoutAccentBrush}" FontSize="20"
                     Command="{Binding TogglePlayPauseCommand}" ToolTip="Play / Pause">
-                <TextBlock Style="{StaticResource PlayPauseGlyph}" />
+                <controls:ThemedIcon Style="{StaticResource PlayPauseIcon}" />
             </Button>
             <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource FlyoutSecondaryTextBrush}"
-                    Command="{Binding SkipNextCommand}" ToolTip="Next" Content="&#xE893;" />
+                    Command="{Binding SkipNextCommand}" ToolTip="Next">
+                <controls:ThemedIcon Kind="Next" />
+            </Button>
         </StackPanel>
     </StackPanel>
 </UserControl>
