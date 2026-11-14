@@ -57,6 +57,18 @@
                     <StackPanel Style="{StaticResource TabPage}">
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Width="260" VerticalAlignment="Center"
+                                          ItemsSource="{Binding AnchorOptions}" DisplayMemberPath="Label"
+                                          SelectedValuePath="Value" SelectedValue="{Binding Anchor}" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Placement" />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="Right of the icons suits a left-aligned taskbar. On a vertical taskbar: above / below the icons." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                     <Slider Style="{StaticResource SettingSlider}" Value="{Binding LeftOffset}"
                                             Minimum="{x:Static models:LayoutSettings.MinLeftOffset}"
@@ -64,8 +76,8 @@
                                     <TextBlock Style="{StaticResource SettingValue}" Text="{Binding LeftOffset, StringFormat={}{0:0}}" />
                                 </StackPanel>
                                 <StackPanel Margin="0,0,16,0">
-                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Distance from the left edge" />
-                                    <TextBlock Style="{StaticResource SettingHint}" Text="Move the widget right, e.g. past the Windows Widgets button. It stops before taskbar icons." />
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Distance" />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="From the taskbar's left edge (e.g. past the Widgets button), or from the tray when placed right of the icons. Never covers taskbar icons." />
                                 </StackPanel>
                             </DockPanel>
                         </Border>

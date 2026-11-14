@@ -22,7 +22,7 @@
     <!-- Fully transparent pixels let clicks through to the taskbar; 1/255 alpha catches them. Only the content is
          clickable, so a widget with nothing playing or no room (shrunk to ~0 width) never blocks taskbar icons.
          Collapsing instead of hiding/re-showing avoids redoing positioning and the taskbar ownership. -->
-    <Border Background="#01000000" Padding="6,0"
+    <Border x:Name="ContentBorder" Background="#01000000" Padding="6,0"
             Visibility="{Binding HasTrack, Converter={StaticResource BoolToVisibility}}">
         <Grid>
             <Grid.ColumnDefinitions>
@@ -37,7 +37,7 @@
                 </Border.Background>
             </Border>
 
-            <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+            <StackPanel x:Name="TextPanel" Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
                 <TextBlock x:Name="TitleText" Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                 <TextBlock x:Name="ArtistText" Text="{Binding Artist}" FontSize="11" Opacity="0.7" TextTrimming="CharacterEllipsis" />
             </StackPanel>

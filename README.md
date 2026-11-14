@@ -136,15 +136,26 @@ Auxline/
   - App bar registration (`ABM_NEW`, no `ABM_SETPOS`, so no reserved space) → `ABN_FULLSCREENAPP` open/close notifications
   - `SHQueryUserNotificationState` at startup and after foreground changes as a safety net
 - [x] Hide when nothing is playing (content collapses, window shrinks to zero width)
-- [ ] Handle taskbar auto-hide
+- [x] Handle taskbar auto-hide
+  - Windows 11 moves the taskbar window itself (jumps back when shown, slides down ~280 ms when hidden, 2 px stay on screen)
+  - `EVENT_OBJECT_LOCATIONCHANGE` hook limited to Explorer's process; not at its docked position = hidden → widget hides
+  - Hiding (instead of sliding along) keeps the 2 px edge free for the mouse to bring the taskbar back
+- [x] Taskbar edge (Windows 11 only docks at the bottom without hacks/tools)
+  - Top: flyout opens below the widget
+  - Left/right: cover only (no title/artist) in a cell as wide as the taskbar and as tall as the cover + margins (fits the gap between apps and tray), placed top→bottom in a free gap; flyout opens beside it, kept on screen
+- [x] React to taskbar moves and alignment changes immediately (`WM_SETTINGCHANGE`), re-measure once icons settle
+- [x] `TaskbarAttachment` class: ownership, topmost, app bar notifications, fullscreen/auto-hide state (split out of `WidgetWindow`)
 - [ ] Multi-monitor support (choose which taskbar)
 - [x] Never cover taskbar icons (auto-fit)
   - Button positions via UI Automation (`Shell_TrayWnd` descendants), measured off the UI thread at startup, on display changes, after an Explorer restart and 800 ms after foreground changes
   - The widget stays in a free gap; if the offset points into icons it stops right before them; hidden only when no gap has room
   - Placement uses the last measurement synchronously, so moving the widget never waits for (or races) the query
-- [ ] Option: dock to the right of the icons (needed for left-aligned taskbars)
+  - UI Automation reports no buttons at all while the taskbar's context menu is open and for ~1 s while it re-lays out: an empty result counts as unknown (last layout kept, retried 5× every 500 ms); docked right, an unknown layout hides the widget instead of covering the tray
+- [x] Option: dock to the right of the icons (needed for left-aligned taskbars)
+  - Sits in the last free gap before the tray, right edge fixed (distance counts from the tray), grows to the left
+  - Pushed into the app icons it stops right after them; on vertical taskbars: below the icons, above the tray
 - [x] Settings window + JSON persistence (`%AppData%\Auxline\settings.json`, debounced atomic saves, live apply)
-  - [x] Position tab: left offset, max width, cover size (capped to the taskbar height)
+  - [x] Position tab: placement (left / right of the icons), distance, max width, cover size (capped to the taskbar height)
   - [x] Appearance tab: theme, font (searchable list), font sizes, text colour (colour wheel + hex), flyout corners, acrylic
   - [x] Sources tab: per-app on/off and priority
   - [x] Follows Windows light/dark switches live (widget, tray icon, flyout)
@@ -159,7 +170,8 @@ Auxline/
   - Respects Task Manager's Startup toggle (`Explorer\StartupApproved\Run`, odd first byte = disabled)
 - [x] Tray icon (start with Windows, debug window, exit; settings once the settings window exists)
   - Native menu (`TrackPopupMenuEx`): a WPF ContextMenu closes instantly when the icon is in the overflow flyout
-- [ ] Dark tray menu in dark mode (native menus are light by default)
+- [x] Dark tray menu in dark mode (native menus are light by default)
+  - Undocumented `uxtheme` ordinals #135 `SetPreferredAppMode` (force dark/light) + #136 `FlushMenuThemes`; follows the taskbar theme live; falls back to light if missing
 - [x] Single-instance check (named mutex)
 - [x] Runs in the background; debug window only on demand
 - [x] Log file (`%LocalAppData%\Auxline\logs\auxline.log`, 1 MB + 1 backup) and global error handlers
@@ -179,6 +191,7 @@ Auxline/
 - **Spotify timeline data** is not continuous, so the progress bar has to be interpolated.
 - **Firefox-based browsers** (Firefox, Zen, LibreWolf…) report the timeline only on pause/resume and clear it on their own, so without help the progress bar appears only after the first pause of each track. Chromium-based browsers report it continuously. Fix: the optional userscript in [Extras](#extras).
 - **Opera / Opera GX** likely won't get volume control: their Start menu entry points to `launcher.exe`, while audio plays from `opera.exe` (untested).
+- **Taskbar position.** Windows 11 only docks the taskbar at the bottom. Top works only via an unofficial registry hack, left/right only via third-party tools (ExplorerPatcher, Windhawk). Auxline adapts (flyout below / beside; cover-only widget on vertical taskbars), but these layouts get less testing.
 - **Multiple media sessions.** When a browser and Spotify both play, the Sources priority list decides; with nothing playing, Windows' current session is shown.
 
 ---

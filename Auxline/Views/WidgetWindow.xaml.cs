@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -11,25 +10,14 @@ using static Auxline.Interop.NativeMethods;
 namespace Auxline.Views;
 
 /// <summary>
-/// Compact now-playing widget drawn over the left side of the taskbar.
-/// Not embedded in Explorer: a tool window owned by the taskbar that never takes focus.
+/// Compact now-playing widget drawn on the taskbar, in a free gap between taskbar icons
+/// (left side of a horizontal taskbar; cover only on a vertical one).
+/// Not embedded in Explorer: a separate window kept on the taskbar by <see cref="TaskbarAttachment"/>.
 /// </summary>
 public partial class WidgetWindow : Window
 {
-    /// <summary>Minimum space above and below the cover, so it never touches the taskbar's edges.</summary>
-    private const double CoverVerticalMarginDip = 4;
-
-    /// <summary>
-    /// After the foreground changes, the shell sometimes raises the taskbar ~60-130 ms later through a path
-    /// that ignores window ownership (seen after the snipping overlay closes). Raise the widget after that.
-    /// </summary>
-    private static readonly TimeSpan RaiseDelay = TimeSpan.FromMilliseconds(300);
-
-    /// <summary>
-    /// Apps opening/closing change the foreground and shift centred taskbar icons, which slide into place;
-    /// re-measure the buttons once they've settled.
-    /// </summary>
-    private static readonly TimeSpan MeasureDelay = TimeSpan.FromMilliseconds(800);
+    /// <summary>Minimum space between the cover and the taskbar's long edges, so it never touches them.</summary>
+    private const double CoverMarginDip = 4;
 
     /// <summary>Space kept between the widget and taskbar buttons.</summary>
     private const double ButtonGapDip = 8;
@@ -37,76 +25,65 @@ public partial class WidgetWindow : Window
     /// <summary>Below this the widget can't show a cover and readable text, so it hides instead.</summary>
     private const double MinUsefulWidthDip = 48;
 
-    /// <summary>Broadcast by Explorer when it (re)creates the taskbar, e.g. after an Explorer restart.</summary>
-    private static readonly int TaskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
-
-    /// <summary>
-    /// Sent by the shell to registered app bars; ABN_FULLSCREENAPP says a fullscreen app (game, video) opened or
-    /// closed. The widget is "always on top", so without this it would stay visible over fullscreen apps.
-    /// </summary>
-    private static readonly int AppBarNotifyMessage = RegisterWindowMessage("Auxline.AppBarNotify");
+    /// <summary>Re-layouts after moving/realigning the taskbar leave its buttons unreadable for ~1 s.</summary>
+    private const int MaxMeasureRetries = 5;
+    private static readonly TimeSpan MeasureRetryDelay = TimeSpan.FromMilliseconds(500);
 
     private readonly TaskbarService _taskbar;
-    private readonly DispatcherTimer _raiseTimer;
-    private readonly DispatcherTimer _measureTimer;
+    private readonly TaskbarAttachment _attachment;
     private IntPtr _handle;
-    private double _leftOffsetDip = new LayoutSettings().LeftOffset;
+    private double _offsetDip = new LayoutSettings().LeftOffset;
     private double _maxWidthSettingDip = new LayoutSettings().MaxWidgetWidth;
+    private WidgetAnchor _anchor = new LayoutSettings().Anchor;
 
     /// <summary>
     /// Last measured taskbar buttons (null until the first measurement succeeds). Placement uses this synchronously,
     /// so moving the widget never waits for (or races) the slow UI Automation query.
     /// </summary>
-    private IReadOnlyList<ButtonSpan>? _buttons;
+    private IReadOnlyList<Rect>? _buttons;
 
     /// <summary>Only the newest measurement may apply; older ones finishing late are stale.</summary>
     private int _latestMeasureRequest;
-
-    private bool _isHiddenForFullscreen;
 
     public event EventHandler? Clicked;
 
     /// <summary>Current bounds in DIPs.</summary>
     public Rect Bounds => new(Left, Top, ActualWidth, ActualHeight);
 
+    /// <summary>Which screen edge the taskbar is on, so the flyout opens towards the screen's centre.</summary>
+    public TaskbarEdge TaskbarEdge { get; private set; } = TaskbarEdge.Bottom;
+
     public WidgetWindow(TaskbarService taskbar)
     {
         InitializeComponent();
         _taskbar = taskbar;
 
+        // Created first so its handle setup (ownership, styles) runs before our own SourceInitialized handler.
+        _attachment = new TaskbarAttachment(this, taskbar);
+        _attachment.LayoutMayHaveChanged += (_, _) =>
+        {
+            RepositionAfterLayout();
+            MeasureTaskbar();
+        };
+        _attachment.ShouldHideChanged += (_, shouldHide) => SetHidden(shouldHide);
+
         SourceInitialized += OnSourceInitialized;
         MouseLeftButtonUp += (_, _) => Clicked?.Invoke(this, EventArgs.Empty);
         DpiChanged += (_, _) => RepositionAfterLayout();
-
-        _raiseTimer = new DispatcherTimer { Interval = RaiseDelay };
-        _raiseTimer.Tick += (_, _) =>
+        // Docked right, the right edge stays put: a new title changes the width, so the left edge must move.
+        SizeChanged += (_, e) =>
         {
-            _raiseTimer.Stop();
-            RaiseAboveTaskbar();
-            // Safety net in case a fullscreen open/close notification was missed.
-            SetHiddenForFullscreen(IsFullscreenAppRunning());
+            if (_anchor == WidgetAnchor.RightOfIcons && e.WidthChanged && _handle != IntPtr.Zero) RepositionAfterLayout();
         };
-        _measureTimer = new DispatcherTimer { Interval = MeasureDelay };
-        _measureTimer.Tick += (_, _) =>
-        {
-            _measureTimer.Stop();
-            MeasureTaskbar();
-        };
-        _taskbar.ForegroundChanged += OnForegroundChanged;
-        Closed += (_, _) =>
-        {
-            _taskbar.ForegroundChanged -= OnForegroundChanged;
-            _raiseTimer.Stop();
-            _measureTimer.Stop();
-            UnregisterAppBar();
-        };
+        Closed += (_, _) => _attachment.Dispose();
     }
 
     /// <summary>Applies live; safe to call before the window is shown.</summary>
     public void ApplyLayout(LayoutSettings layout)
     {
-        _leftOffsetDip = layout.LeftOffset;
+        _offsetDip = layout.LeftOffset;
         _maxWidthSettingDip = layout.MaxWidgetWidth;
+        _anchor = layout.Anchor;
         CoverImage.Width = layout.CoverSize;
         CoverImage.Height = layout.CoverSize;
         if (_handle != IntPtr.Zero) Reposition();
@@ -135,97 +112,20 @@ public partial class WidgetWindow : Window
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         _handle = new WindowInteropHelper(this).Handle;
-
-        // Hide from Alt+Tab and never steal focus from the app the user is working in.
-        var exStyle = GetWindowLongPtr(_handle, GWL_EXSTYLE);
-        SetWindowLongPtr(_handle, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
-
-        HwndSource.FromHwnd(_handle).AddHook(WndProc);
-        AttachToTaskbar();
-        RegisterAppBar();
         Reposition();
         MeasureTaskbar();
-        // Started while a game/video is already fullscreen: no "opened" notification will come. Deferred because
-        // this runs inside Show(), which would otherwise immediately undo the Hide().
-        Dispatcher.BeginInvoke(() => SetHiddenForFullscreen(IsFullscreenAppRunning()));
     }
 
-    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    /// <summary>Fullscreen app or auto-hidden taskbar (see <see cref="TaskbarAttachment.ShouldHide"/>).</summary>
+    private void SetHidden(bool isHidden)
     {
-        if (msg == WM_DISPLAYCHANGE)
-        {
-            RepositionAfterLayout();
-            MeasureTaskbar();
-        }
-        else if (msg == TaskbarCreatedMessage)
-        {
-            // A restarted Explorer forgets both the ownership and the app bar registration.
-            AttachToTaskbar();
-            RegisterAppBar();
-            RepositionAfterLayout();
-            MeasureTaskbar();
-        }
-        else if (msg == AppBarNotifyMessage && wParam == ABN_FULLSCREENAPP)
-        {
-            SetHiddenForFullscreen(lParam != IntPtr.Zero);
-        }
-        return IntPtr.Zero;
-    }
-
-    /// <summary>
-    /// Windows keeps owned windows above their owner, so whenever the taskbar raises itself
-    /// (clicks, Start, snipping overlay) the widget is raised with it. The delayed raise covers the rest.
-    /// </summary>
-    private void AttachToTaskbar()
-    {
-        var taskbarWindow = _taskbar.FindTaskbarWindow();
-        if (taskbarWindow == IntPtr.Zero)
-        {
-            Trace.TraceWarning("Taskbar window not found; widget may end up behind the taskbar.");
-            return;
-        }
-        SetWindowLongPtr(_handle, GWLP_HWNDPARENT, taskbarWindow);
-    }
-
-    /// <summary>
-    /// Registers only to receive shell notifications (fullscreen open/close). No ABM_SETPOS follows, so no screen
-    /// space is reserved and the work area is untouched.
-    /// </summary>
-    private void RegisterAppBar()
-    {
-        var data = new APPBARDATA
-        {
-            cbSize = (uint)Marshal.SizeOf<APPBARDATA>(),
-            hWnd = _handle,
-            uCallbackMessage = (uint)AppBarNotifyMessage,
-        };
-        SHAppBarMessage(ABM_NEW, ref data);
-    }
-
-    private void UnregisterAppBar()
-    {
-        var data = new APPBARDATA { cbSize = (uint)Marshal.SizeOf<APPBARDATA>(), hWnd = _handle };
-        SHAppBarMessage(ABM_REMOVE, ref data);
-    }
-
-    private static bool IsFullscreenAppRunning() =>
-        SHQueryUserNotificationState(out var state) >= 0
-        && state is QUNS_BUSY or QUNS_RUNNING_D3D_FULL_SCREEN or QUNS_PRESENTATION_MODE;
-
-    private void SetHiddenForFullscreen(bool isHidden)
-    {
-        if (isHidden == _isHiddenForFullscreen) return;
-        _isHiddenForFullscreen = isHidden;
-
         if (isHidden)
         {
             Hide();
+            return;
         }
-        else
-        {
-            Show();
-            RaiseAboveTaskbar();
-        }
+        Show();
+        _attachment.RaiseAboveTaskbar();
     }
 
     /// <summary>Defer until WPF has applied its own DPI/display handling, which would override our position.</summary>
@@ -233,52 +133,117 @@ public partial class WidgetWindow : Window
 
     private void Reposition()
     {
-        if (_taskbar.GetTaskbarBounds() is not { } taskbar)
+        if (_taskbar.GetTaskbarPlacement() is not { } placement)
         {
             Trace.TraceWarning("Taskbar not found; widget position unchanged.");
             return;
         }
 
+        TaskbarEdge = placement.Edge;
+        var taskbar = placement.Bounds;
+        var isVertical = placement.IsVertical;
         var scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
-        Height = taskbar.Height / scale;
-        // The cover-size setting is in DIPs, but the taskbar's DIP height shrinks with scaling (48 px at 125% ≈ 38 DIP).
-        CoverImage.MaxHeight = CoverImage.MaxWidth = Math.Max(0, Height - CoverVerticalMarginDip * 2);
 
-        // Never cover taskbar icons: stay in a free gap, stopping before the icons if the offset points into them.
-        var requestedStart = taskbar.X + _leftOffsetDip * scale;
-        var slot = _buttons is null
-            ? new WidgetSlot(requestedStart, double.PositiveInfinity) // layout unknown: only the max-width setting applies
-            : TaskbarFreeSpace.Fit(requestedStart, taskbar.X, taskbar.X + taskbar.Width, _buttons,
-                ButtonGapDip * scale, MinUsefulWidthDip * scale);
+        // Thickness = the taskbar's short side. The cover-size setting is in DIPs, but the taskbar's DIP thickness
+        // shrinks with scaling (48 px at 125% ≈ 38 DIP), so the cover is capped to fit.
+        var thicknessDip = (isVertical ? taskbar.Width : taskbar.Height) / scale;
+        CoverImage.MaxHeight = CoverImage.MaxWidth = Math.Max(0, thicknessDip - CoverMarginDip * 2);
+        // On a vertical taskbar the widget is just the cover: as wide as the taskbar, but only as tall as the cover
+        // plus margins, so it also fits the narrower gaps (e.g. between the last app and the tray).
+        var coverCellDip = Math.Min(CoverImage.Width, CoverImage.MaxHeight) + CoverMarginDip * 2;
 
-        // Zero width hides the widget when no gap has room; it reappears once one does.
-        var widthDip = Math.Min(_maxWidthSettingDip, slot.Width / scale);
-        MaxWidth = slot.Width > 0 ? widthDip : 0;
+        // Placement runs along the taskbar: left→right, or top→bottom for a vertical one. Never cover taskbar icons:
+        // stay in a free gap. Docked left, the offset counts from the taskbar's start and the widget grows towards the
+        // end; docked right, it sits in the gap before the tray, the offset counts from there and it grows backwards.
+        var (axisStart, axisEnd) = isVertical ? (taskbar.Y, taskbar.Y + taskbar.Height) : (taskbar.X, taskbar.X + taskbar.Width);
+        var offset = _offsetDip * scale;
+        var isDockedAtEnd = _anchor == WidgetAnchor.RightOfIcons;
+        var minLength = (isVertical ? coverCellDip : MinUsefulWidthDip) * scale;
+        // Right after the taskbar moves (e.g. top → right), the last measurement still describes the old position;
+        // read along the new axis it can look like "no room". Treat it as unknown until the fresh one arrives.
+        var buttons = _buttons is not null && AreWithin(_buttons, taskbar) ? _buttons : null;
+        var slot = (buttons, isDockedAtEnd) switch
+        {
+            // Layout unknown, docked left: the area from the taskbar's start is usually free; size settings apply.
+            (null, false) => new WidgetSlot(axisStart + offset, double.PositiveInfinity),
+            // Layout unknown, docked right: the far end is the tray, so wait (hidden) instead of covering it.
+            (null, true) => new WidgetSlot(axisEnd, 0),
+            (_, false) => TaskbarFreeSpace.Fit(axisStart + offset, axisStart, axisEnd, ToSpans(buttons, isVertical), ButtonGapDip * scale, minLength),
+            (_, true) => TaskbarFreeSpace.FitAtEnd(offset, axisStart, axisEnd, ToSpans(buttons, isVertical), ButtonGapDip * scale, minLength),
+        };
+        var hasRoom = slot.Width > 0;
+        var slotEnd = slot.Start + slot.Width;
 
-        SetWindowPos(_handle, HWND_TOPMOST, (int)Math.Round(slot.Start), taskbar.Y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
+        if (isVertical)
+        {
+            ApplyVerticalLayout(thicknessDip, hasRoom ? coverCellDip : 0);
+            var y = isDockedAtEnd ? slotEnd - coverCellDip * scale : slot.Start;
+            SetWindowPos(_handle, HWND_TOPMOST, taskbar.X, (int)Math.Round(y), 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        else
+        {
+            ApplyHorizontalLayout(thicknessDip, hasRoom ? Math.Min(_maxWidthSettingDip, slot.Width / scale) : 0);
+            // Docked right, the left edge depends on the content's width: lay out now to know it.
+            if (isDockedAtEnd) UpdateLayout();
+            var x = isDockedAtEnd ? slotEnd - ActualWidth * scale : slot.Start;
+            SetWindowPos(_handle, HWND_TOPMOST, (int)Math.Round(x), taskbar.Y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
+        }
     }
 
-    /// <summary>Re-reads taskbar button positions off the UI thread, then re-places the widget with them.</summary>
+    /// <summary>Cover + title/artist, sized to its content up to <paramref name="maxWidthDip"/> (0 hides it).</summary>
+    private void ApplyHorizontalLayout(double thicknessDip, double maxWidthDip)
+    {
+        TextPanel.Visibility = Visibility.Visible;
+        ContentBorder.HorizontalAlignment = HorizontalAlignment.Stretch;
+        SizeToContent = SizeToContent.Width;
+        MaxHeight = double.PositiveInfinity;
+        Height = thicknessDip;
+        MaxWidth = maxWidthDip;
+    }
+
+    /// <summary>Left/right taskbar: no room for text, so a cell with just the cover (zero height hides it).</summary>
+    private void ApplyVerticalLayout(double thicknessDip, double heightDip)
+    {
+        TextPanel.Visibility = Visibility.Collapsed;
+        ContentBorder.HorizontalAlignment = HorizontalAlignment.Center;
+        SizeToContent = SizeToContent.Manual;
+        MaxWidth = double.PositiveInfinity;
+        MaxHeight = double.PositiveInfinity;
+        Width = thicknessDip;
+        // Hide via Height itself, not MaxHeight: lifting a MaxHeight of 0 doesn't regrow the window when Height
+        // didn't change, so it stayed a 2 px line.
+        Height = heightDip;
+    }
+
+    /// <summary>All button centres inside the taskbar, i.e. measured at its current position.</summary>
+    private static bool AreWithin(IReadOnlyList<Rect> buttons, Int32Rect taskbar)
+    {
+        var bounds = new Rect(taskbar.X, taskbar.Y, taskbar.Width, taskbar.Height);
+        return buttons.All(button => bounds.Contains(new Point(button.X + button.Width / 2, button.Y + button.Height / 2)));
+    }
+
+    /// <summary>Button extents along the taskbar's long axis.</summary>
+    private static IEnumerable<ButtonSpan> ToSpans(IReadOnlyList<Rect> buttons, bool isVertical) =>
+        buttons.Select(b => isVertical ? new ButtonSpan(b.Top, b.Bottom) : new ButtonSpan(b.Left, b.Right));
+
+    /// <summary>
+    /// Re-reads taskbar button positions off the UI thread, then re-places the widget with them. An unknown result
+    /// (taskbar context menu open, taskbar re-laying out) keeps the last layout and is retried a few times.
+    /// </summary>
     private async void MeasureTaskbar()
     {
         var request = ++_latestMeasureRequest;
-        var buttons = await Task.Run(_taskbar.GetButtonSpans);
-        if (request != _latestMeasureRequest) return;
+        for (var attempt = 0; ; attempt++)
+        {
+            var buttons = await Task.Run(_taskbar.GetButtonBounds);
+            if (request != _latestMeasureRequest) return;
 
-        // A failed read keeps the last known layout rather than dropping the protection.
-        if (buttons is not null) _buttons = buttons;
-        Reposition();
+            if (buttons is not null) _buttons = buttons;
+            Reposition();
+            if (buttons is not null || attempt >= MaxMeasureRetries) return;
+
+            await Task.Delay(MeasureRetryDelay);
+            if (request != _latestMeasureRequest) return;
+        }
     }
-
-    /// <summary>Restart the one-shot timers, so a burst of foreground changes causes a single raise and measurement.</summary>
-    private void OnForegroundChanged(object? sender, EventArgs e)
-    {
-        _raiseTimer.Stop();
-        _raiseTimer.Start();
-        _measureTimer.Stop();
-        _measureTimer.Start();
-    }
-
-    private void RaiseAboveTaskbar() =>
-        SetWindowPos(_handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }

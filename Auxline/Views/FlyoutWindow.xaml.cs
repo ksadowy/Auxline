@@ -4,6 +4,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using Auxline.Interop;
 using Auxline.Models;
+using Auxline.Services;
 using Auxline.ViewModels;
 using static Auxline.Interop.NativeMethods;
 
@@ -15,7 +16,8 @@ namespace Auxline.Views;
 /// </summary>
 public partial class FlyoutWindow : Window
 {
-    private const double GapAboveAnchorDip = 12;
+    /// <summary>Space between the flyout and the widget (taskbar).</summary>
+    private const double GapToAnchorDip = 12;
 
     /// <summary>
     /// Clicking the widget while the flyout is open first deactivates (hides) the flyout on mouse down, then raises
@@ -31,6 +33,7 @@ public partial class FlyoutWindow : Window
     private bool _isLight;
     private IntPtr _handle;
     private Rect _anchor;
+    private TaskbarEdge _taskbarEdge = TaskbarEdge.Bottom;
     /// <summary>Tick count of the last focus-loss hide; null until it first happens.</summary>
     private long? _hiddenByFocusLossAt;
 
@@ -48,10 +51,10 @@ public partial class FlyoutWindow : Window
         };
         KeyDown += OnKeyDown;
         IsVisibleChanged += (_, _) => Player.SetProgressShown(IsVisible);
-        // Content can grow while open (e.g. the progress bar appears); keep the bottom edge above the widget.
+        // Content can grow while open (e.g. the progress bar appears); keep the edge facing the widget in place.
         SizeChanged += (_, e) =>
         {
-            if (IsVisible && e.HeightChanged) PlaceAboveAnchor(ActualHeight);
+            if (IsVisible && e.HeightChanged) PlaceNextToAnchor(ActualHeight);
         };
     }
 
@@ -66,8 +69,9 @@ public partial class FlyoutWindow : Window
         if (_handle != IntPtr.Zero) ApplyFrame();
     }
 
-    /// <param name="anchor">Widget bounds in DIPs; the flyout opens above it, left-aligned.</param>
-    public void Toggle(Rect anchor)
+    /// <param name="anchor">Widget bounds in DIPs.</param>
+    /// <param name="taskbarEdge">The flyout opens on the side facing away from it (above a bottom taskbar, etc.).</param>
+    public void Toggle(Rect anchor, TaskbarEdge taskbarEdge)
     {
         if (IsVisible)
         {
@@ -78,18 +82,28 @@ public partial class FlyoutWindow : Window
 
         // Measure before showing so the flyout appears at its final position, without a jump.
         _anchor = anchor;
+        _taskbarEdge = taskbarEdge;
         var content = (FrameworkElement)Content;
         content.Measure(new Size(Width, double.PositiveInfinity));
-        PlaceAboveAnchor(content.DesiredSize.Height);
+        PlaceNextToAnchor(content.DesiredSize.Height);
 
         Show();
         Activate();
     }
 
-    private void PlaceAboveAnchor(double height)
+    private void PlaceNextToAnchor(double height)
     {
-        Left = _anchor.Left;
-        Top = _anchor.Top - height - GapAboveAnchorDip;
+        (Left, Top) = _taskbarEdge switch
+        {
+            TaskbarEdge.Top => (_anchor.Left, _anchor.Bottom + GapToAnchorDip),
+            TaskbarEdge.Left => (_anchor.Right + GapToAnchorDip, _anchor.Top),
+            TaskbarEdge.Right => (_anchor.Left - Width - GapToAnchorDip, _anchor.Top),
+            _ => (_anchor.Left, _anchor.Top - height - GapToAnchorDip),
+        };
+
+        // Next to a vertical taskbar it hangs down from the widget; keep it on screen near the bottom.
+        var workArea = SystemParameters.WorkArea;
+        Top = Math.Max(workArea.Top, Math.Min(Top, workArea.Bottom - height));
     }
 
     private void OnProgressPressed(object sender, MouseButtonEventArgs e) => Player.IsSeeking = true;

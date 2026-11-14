@@ -80,7 +80,7 @@ public partial class App : Application
 
         var flyout = new FlyoutWindow { DataContext = player };
         var widget = new WidgetWindow(_taskbar) { DataContext = player };
-        widget.Clicked += (_, _) => flyout.Toggle(widget.Bounds);
+        widget.Clicked += (_, _) => flyout.Toggle(widget.Bounds, widget.TaskbarEdge);
 
         var executablePath = Environment.ProcessPath
             ?? throw new InvalidOperationException("Cannot determine the Auxline executable path.");

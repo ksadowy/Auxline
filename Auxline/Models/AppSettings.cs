@@ -58,12 +58,23 @@ public sealed record LayoutSettings
 
     public double CoverSize { get; init; } = 32;
 
+    /// <summary>Left of the taskbar icons (default), or right of them next to the tray.</summary>
+    public WidgetAnchor Anchor { get; init; } = WidgetAnchor.LeftOfIcons;
+
     public LayoutSettings Normalize() => this with
     {
+        Anchor = Enum.IsDefined(Anchor) ? Anchor : WidgetAnchor.LeftOfIcons,
         LeftOffset = SettingsMath.ClampOrDefault(LeftOffset, MinLeftOffset, MaxLeftOffset, 8),
         MaxWidgetWidth = SettingsMath.ClampOrDefault(MaxWidgetWidth, MinWidgetWidth, MaxWidgetWidthLimit, 240),
         CoverSize = SettingsMath.ClampOrDefault(CoverSize, MinCoverSize, MaxCoverSize, 32),
     };
+}
+
+/// <summary>On vertical taskbars: above the icons / below them, next to the tray.</summary>
+public enum WidgetAnchor
+{
+    LeftOfIcons,
+    RightOfIcons,
 }
 
 public enum ThemePreference

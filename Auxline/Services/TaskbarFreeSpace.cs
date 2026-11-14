@@ -32,6 +32,27 @@ public static class TaskbarFreeSpace
         return new WidgetSlot(requestedStart, 0);
     }
 
+    /// <summary>
+    /// "Right of the icons": the last free gap with room (i.e. the one before the tray), with the widget's end
+    /// <paramref name="offset"/> before the gap's end, but never so far that less than <paramref name="minWidth"/> remains.
+    /// The widget aligns to <c>Start + Width</c> and grows towards the start.
+    /// </summary>
+    public static WidgetSlot FitAtEnd(
+        double offset, double taskbarLeft, double taskbarRight,
+        IEnumerable<ButtonSpan> buttons, double spacing, double minWidth)
+    {
+        var gaps = FreeGaps(taskbarLeft, taskbarRight, buttons, spacing);
+        for (var i = gaps.Count - 1; i >= 0; i--)
+        {
+            var (gapStart, gapEnd) = gaps[i];
+            if (gapEnd - gapStart < minWidth) continue; // e.g. the 2 px between tray icons
+
+            var end = Math.Max(gapStart + minWidth, gapEnd - offset);
+            return new WidgetSlot(gapStart, end - gapStart);
+        }
+        return new WidgetSlot(taskbarRight, 0);
+    }
+
     /// <summary>Spaces between buttons, shrunk by <paramref name="spacing"/> next to each button (not at the taskbar's ends).</summary>
     private static List<(double Start, double End)> FreeGaps(
         double taskbarLeft, double taskbarRight, IEnumerable<ButtonSpan> buttons, double spacing)

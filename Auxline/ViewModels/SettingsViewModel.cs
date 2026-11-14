@@ -11,6 +11,9 @@ using Auxline.Services;
 
 namespace Auxline.ViewModels;
 
+/// <summary>A dropdown entry: the setting's value with a readable label.</summary>
+public sealed record AnchorOption(WidgetAnchor Value, string Label);
+
 /// <summary>
 /// Settings window state. Every change is applied live and saved by <see cref="SettingsService"/>.
 /// Dispose when the window closes: it listens to the long-lived settings service.
@@ -33,6 +36,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private double _coverSize;
+
+    [ObservableProperty]
+    private WidgetAnchor _anchor;
 
     [ObservableProperty]
     private ThemePreference _theme;
@@ -75,6 +81,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _useAcrylic;
+
+    public IReadOnlyList<AnchorOption> AnchorOptions { get; } =
+    [
+        new(WidgetAnchor.LeftOfIcons, "Left of the taskbar icons"),
+        new(WidgetAnchor.RightOfIcons, "Right of the icons, next to the tray"),
+    ];
 
     public IReadOnlyList<ThemePreference> Themes { get; } = Enum.GetValues<ThemePreference>();
 
@@ -145,6 +157,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     partial void OnMaxWidgetWidthChanged(double value) => UpdateLayout(layout => layout with { MaxWidgetWidth = value });
 
     partial void OnCoverSizeChanged(double value) => UpdateLayout(layout => layout with { CoverSize = value });
+
+    partial void OnAnchorChanged(WidgetAnchor value) => UpdateLayout(layout => layout with { Anchor = value });
 
     partial void OnThemeChanged(ThemePreference value) => UpdateLook(look => look with { Theme = value });
 
@@ -223,6 +237,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         LeftOffset = settings.Layout.LeftOffset;
         MaxWidgetWidth = settings.Layout.MaxWidgetWidth;
         CoverSize = settings.Layout.CoverSize;
+        Anchor = settings.Layout.Anchor;
         Theme = settings.Look.Theme;
         FontFamily = settings.Look.FontFamily;
         SelectedFontInList = settings.Look.FontFamily;
