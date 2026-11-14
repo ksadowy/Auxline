@@ -9,13 +9,36 @@ public sealed record AppSettings
 
     public LookSettings Look { get; init; } = new();
 
+    /// <summary>
+    /// Media sources in priority order (first = preferred). New apps are appended when first seen.
+    /// Spotify leads by default, matching the original "prefer Spotify" behaviour.
+    /// </summary>
+    public IReadOnlyList<SourceEntry> Sources { get; init; } = [new SourceEntry("Spotify.exe")];
+
     /// <summary>Brings every value into its valid range (hand-edited or outdated files may contain anything).</summary>
     public AppSettings Normalize() => this with
     {
         Layout = (Layout ?? new LayoutSettings()).Normalize(),
         Look = (Look ?? new LookSettings()).Normalize(),
+        Sources = NormalizeSources(Sources),
     };
+
+    /// <summary>
+    /// Drops blank IDs and duplicates (first wins). Returns the same list when nothing changes, so "did the
+    /// sources change?" can be a cheap reference check (settings change on every slider tick).
+    /// </summary>
+    private static IReadOnlyList<SourceEntry> NormalizeSources(IReadOnlyList<SourceEntry>? sources)
+    {
+        if (sources is null) return [];
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var cleaned = sources.Where(source => source is not null && !string.IsNullOrWhiteSpace(source.AppId) && seen.Add(source.AppId)).ToList();
+        return cleaned.Count == sources.Count ? sources : cleaned;
+    }
 }
+
+/// <param name="AppId">The GSMTC app ID (e.g. "Spotify.exe", "Chrome", or a hash for Firefox-based browsers).</param>
+public sealed record SourceEntry(string AppId, bool IsEnabled = true);
 
 /// <summary>Widget position and size, in DIPs.</summary>
 public sealed record LayoutSettings

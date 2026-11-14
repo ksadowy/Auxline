@@ -22,7 +22,7 @@ public sealed class SettingsServiceTests : IDisposable
     {
         using var settings = SettingsService.Load(_path);
 
-        Assert.Equal(new AppSettings(), settings.Current);
+        AssertDefaults(settings.Current);
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public sealed class SettingsServiceTests : IDisposable
 
         using var settings = SettingsService.Load(_path);
 
-        Assert.Equal(new AppSettings(), settings.Current);
+        AssertDefaults(settings.Current);
         Assert.True(File.Exists(_path + ".bad"));
         Assert.False(File.Exists(_path));
     }
@@ -85,6 +85,29 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.Equal(120, reloaded.Current.Layout.LeftOffset);
         Assert.False(File.Exists(_path + ".tmp"));
+    }
+
+    [Fact]
+    public void UpdateThenFlush_PersistsSources()
+    {
+        using (var settings = SettingsService.Load(_path))
+        {
+            settings.Update(s => s with { Sources = [new("Chrome", IsEnabled: false), new("Spotify.exe")] });
+            settings.Flush();
+        }
+
+        using var reloaded = SettingsService.Load(_path);
+
+        Assert.Equal([new SourceEntry("Chrome", IsEnabled: false), new SourceEntry("Spotify.exe")], reloaded.Current.Sources);
+    }
+
+    /// <summary>Records compare lists by reference, so the source list is compared element by element.</summary>
+    private static void AssertDefaults(AppSettings settings)
+    {
+        var defaults = new AppSettings();
+        Assert.Equal(defaults.Layout, settings.Layout);
+        Assert.Equal(defaults.Look, settings.Look);
+        Assert.Equal(defaults.Sources, settings.Sources);
     }
 
     [Fact]

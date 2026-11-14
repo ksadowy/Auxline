@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -10,8 +11,11 @@ using Auxline.Services;
 
 namespace Auxline.ViewModels;
 
-/// <summary>Settings window state. Every change is applied live and saved by <see cref="SettingsService"/>.</summary>
-public sealed partial class SettingsViewModel : ObservableObject
+/// <summary>
+/// Settings window state. Every change is applied live and saved by <see cref="SettingsService"/>.
+/// Dispose when the window closes: it listens to the long-lived settings service.
+/// </summary>
+public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 {
     /// <summary>Shown in the colour box when no custom colour has been chosen yet.</summary>
     private const string DefaultCustomTextColor = "#FFFFFF";
@@ -78,12 +82,62 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public IReadOnlyList<string> AvailableFonts { get; }
 
+    /// <summary>Priority order: first = preferred.</summary>
+    public ObservableCollection<SourceItemViewModel> Sources { get; } = [];
+
     public SettingsViewModel(SettingsService settings)
     {
         _settings = settings;
         AvailableFonts = ListInstalledFonts(settings.Current.Look.FontFamily);
         FilteredFonts = AvailableFonts;
         Load(settings.Current);
+        _settings.Changed += OnSettingsChanged;
+    }
+
+    public void Dispose() => _settings.Changed -= OnSettingsChanged;
+
+    /// <summary>Shows apps discovered while the window is open; our own edits keep the same set, so no rebuild.</summary>
+    private void OnSettingsChanged(object? sender, AppSettings settings)
+    {
+        var isSameSet = settings.Sources.Count == Sources.Count
+            && settings.Sources.All(source => Sources.Any(item => string.Equals(item.AppId, source.AppId, StringComparison.OrdinalIgnoreCase)));
+        if (!isSameSet) LoadSources(settings.Sources);
+    }
+
+    [RelayCommand]
+    private void MoveSourceUp(SourceItemViewModel item) => MoveSource(item, -1);
+
+    [RelayCommand]
+    private void MoveSourceDown(SourceItemViewModel item) => MoveSource(item, +1);
+
+    /// <summary>Forgets the source; it's added again (enabled, last) the next time it plays.</summary>
+    [RelayCommand]
+    private void RemoveSource(SourceItemViewModel item)
+    {
+        Sources.Remove(item);
+        SaveSources();
+    }
+
+    private void MoveSource(SourceItemViewModel item, int offset)
+    {
+        var index = Sources.IndexOf(item);
+        var target = index + offset;
+        if (index < 0 || target < 0 || target >= Sources.Count) return;
+
+        Sources.Move(index, target);
+        SaveSources();
+    }
+
+    private void SaveSources()
+    {
+        if (_isLoading) return;
+        _settings.Update(settings => settings with { Sources = Sources.Select(item => item.ToEntry()).ToList() });
+    }
+
+    private void LoadSources(IReadOnlyList<SourceEntry> sources)
+    {
+        Sources.Clear();
+        foreach (var source in sources) Sources.Add(new SourceItemViewModel(source, SaveSources));
     }
 
     partial void OnLeftOffsetChanged(double value) => UpdateLayout(layout => layout with { LeftOffset = value });
@@ -178,6 +232,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         TextColor = settings.Look.TextColor ?? DefaultCustomTextColor;
         FlyoutCorners = settings.Look.FlyoutCorners;
         UseAcrylic = settings.Look.UseAcrylic;
+        LoadSources(settings.Sources);
         _isLoading = false;
     }
 

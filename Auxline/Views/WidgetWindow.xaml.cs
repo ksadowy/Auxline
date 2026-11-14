@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -39,6 +40,12 @@ public partial class WidgetWindow : Window
     /// <summary>Broadcast by Explorer when it (re)creates the taskbar, e.g. after an Explorer restart.</summary>
     private static readonly int TaskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
 
+    /// <summary>
+    /// Sent by the shell to registered app bars; ABN_FULLSCREENAPP says a fullscreen app (game, video) opened or
+    /// closed. The widget is "always on top", so without this it would stay visible over fullscreen apps.
+    /// </summary>
+    private static readonly int AppBarNotifyMessage = RegisterWindowMessage("Auxline.AppBarNotify");
+
     private readonly TaskbarService _taskbar;
     private readonly DispatcherTimer _raiseTimer;
     private readonly DispatcherTimer _measureTimer;
@@ -54,6 +61,8 @@ public partial class WidgetWindow : Window
 
     /// <summary>Only the newest measurement may apply; older ones finishing late are stale.</summary>
     private int _latestMeasureRequest;
+
+    private bool _isHiddenForFullscreen;
 
     public event EventHandler? Clicked;
 
@@ -74,6 +83,8 @@ public partial class WidgetWindow : Window
         {
             _raiseTimer.Stop();
             RaiseAboveTaskbar();
+            // Safety net in case a fullscreen open/close notification was missed.
+            SetHiddenForFullscreen(IsFullscreenAppRunning());
         };
         _measureTimer = new DispatcherTimer { Interval = MeasureDelay };
         _measureTimer.Tick += (_, _) =>
@@ -87,6 +98,7 @@ public partial class WidgetWindow : Window
             _taskbar.ForegroundChanged -= OnForegroundChanged;
             _raiseTimer.Stop();
             _measureTimer.Stop();
+            UnregisterAppBar();
         };
     }
 
@@ -130,8 +142,12 @@ public partial class WidgetWindow : Window
 
         HwndSource.FromHwnd(_handle).AddHook(WndProc);
         AttachToTaskbar();
+        RegisterAppBar();
         Reposition();
         MeasureTaskbar();
+        // Started while a game/video is already fullscreen: no "opened" notification will come. Deferred because
+        // this runs inside Show(), which would otherwise immediately undo the Hide().
+        Dispatcher.BeginInvoke(() => SetHiddenForFullscreen(IsFullscreenAppRunning()));
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -143,9 +159,15 @@ public partial class WidgetWindow : Window
         }
         else if (msg == TaskbarCreatedMessage)
         {
+            // A restarted Explorer forgets both the ownership and the app bar registration.
             AttachToTaskbar();
+            RegisterAppBar();
             RepositionAfterLayout();
             MeasureTaskbar();
+        }
+        else if (msg == AppBarNotifyMessage && wParam == ABN_FULLSCREENAPP)
+        {
+            SetHiddenForFullscreen(lParam != IntPtr.Zero);
         }
         return IntPtr.Zero;
     }
@@ -163,6 +185,47 @@ public partial class WidgetWindow : Window
             return;
         }
         SetWindowLongPtr(_handle, GWLP_HWNDPARENT, taskbarWindow);
+    }
+
+    /// <summary>
+    /// Registers only to receive shell notifications (fullscreen open/close). No ABM_SETPOS follows, so no screen
+    /// space is reserved and the work area is untouched.
+    /// </summary>
+    private void RegisterAppBar()
+    {
+        var data = new APPBARDATA
+        {
+            cbSize = (uint)Marshal.SizeOf<APPBARDATA>(),
+            hWnd = _handle,
+            uCallbackMessage = (uint)AppBarNotifyMessage,
+        };
+        SHAppBarMessage(ABM_NEW, ref data);
+    }
+
+    private void UnregisterAppBar()
+    {
+        var data = new APPBARDATA { cbSize = (uint)Marshal.SizeOf<APPBARDATA>(), hWnd = _handle };
+        SHAppBarMessage(ABM_REMOVE, ref data);
+    }
+
+    private static bool IsFullscreenAppRunning() =>
+        SHQueryUserNotificationState(out var state) >= 0
+        && state is QUNS_BUSY or QUNS_RUNNING_D3D_FULL_SCREEN or QUNS_PRESENTATION_MODE;
+
+    private void SetHiddenForFullscreen(bool isHidden)
+    {
+        if (isHidden == _isHiddenForFullscreen) return;
+        _isHiddenForFullscreen = isHidden;
+
+        if (isHidden)
+        {
+            Hide();
+        }
+        else
+        {
+            Show();
+            RaiseAboveTaskbar();
+        }
     }
 
     /// <summary>Defer until WPF has applied its own DPI/display handling, which would override our position.</summary>

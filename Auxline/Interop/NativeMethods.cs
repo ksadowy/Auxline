@@ -30,7 +30,14 @@ internal static class NativeMethods
     public const uint TPM_NONOTIFY = 0x0080;
     public const uint TPM_RETURNCMD = 0x0100;
 
+    public const uint ABM_NEW = 0x00000000;
+    public const uint ABM_REMOVE = 0x00000001;
     public const uint ABM_GETTASKBARPOS = 0x00000005;
+    public const int ABN_FULLSCREENAPP = 0x0000002;
+
+    public const int QUNS_BUSY = 2;
+    public const int QUNS_RUNNING_D3D_FULL_SCREEN = 3;
+    public const int QUNS_PRESENTATION_MODE = 4;
 
     public const string TaskbarWindowClass = "Shell_TrayWnd";
 
@@ -79,6 +86,10 @@ internal static class NativeMethods
 
     [DllImport("shell32.dll")]
     public static extern UIntPtr SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
+
+    /// <returns>HRESULT; <paramref name="state"/> is one of the QUNS_* values.</returns>
+    [DllImport("shell32.dll")]
+    public static extern int SHQueryUserNotificationState(out int state);
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);

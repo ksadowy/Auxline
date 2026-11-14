@@ -236,6 +236,46 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
+
+            <TabItem Header="Sources">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Style="{StaticResource TabPage}">
+                        <TextBlock Style="{StaticResource SettingHint}" Margin="0,0,0,12"
+                                   Text="Apps that played media, in priority order: when several play at once, the highest one is shown. Unticked apps are never shown. New apps are added at the bottom." />
+                        <ItemsControl x:Name="SourceList" ItemsSource="{Binding Sources}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource SettingCard}">
+                                        <DockPanel>
+                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <StackPanel.Resources>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Setter Property="Width" Value="36" />
+                                                        <Setter Property="Margin" Value="4,0,0,0" />
+                                                        <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+                                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                                    </Style>
+                                                </StackPanel.Resources>
+                                                <Button Content="&#xE70E;" ToolTip="Higher priority"
+                                                        Command="{Binding DataContext.MoveSourceUpCommand, ElementName=SourceList}" />
+                                                <Button Content="&#xE70D;" ToolTip="Lower priority"
+                                                        Command="{Binding DataContext.MoveSourceDownCommand, ElementName=SourceList}" />
+                                                <Button Content="&#xE711;" ToolTip="Forget (it comes back when it plays again)"
+                                                        Command="{Binding DataContext.RemoveSourceCommand, ElementName=SourceList}" />
+                                            </StackPanel>
+                                            <CheckBox DockPanel.Dock="Left" VerticalAlignment="Center" IsChecked="{Binding IsEnabled}" />
+                                            <StackPanel Margin="4,0,16,0" VerticalAlignment="Center">
+                                                <TextBlock Style="{StaticResource SettingTitle}" Text="{Binding DisplayName}" />
+                                                <TextBlock Style="{StaticResource SettingHint}" Text="{Binding AppId}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

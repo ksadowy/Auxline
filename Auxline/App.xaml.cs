@@ -55,10 +55,8 @@ public partial class App : Application
         {
             // A half-started app (e.g. widget but no tray icon) would have no way to exit, so fail visibly.
             ReportStartupFailure("Auxline could not start.", ex);
-            return;
         }
-
-        await _media.RefreshAsync();
+        // No explicit first refresh: applying the initial source list in StartUi already picks the session.
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -91,8 +89,18 @@ public partial class App : Application
         _tray.DebugWindowRequested += (_, _) => ShowSingle(() => new DebugWindow { DataContext = player });
         _tray.ExitRequested += (_, _) => Shutdown();
 
+        IReadOnlyList<SourceEntry>? appliedSources = null;
+
         void ApplySettings(AppSettings settings)
         {
+            // Same list instance = unchanged (see AppSettings.Normalize); re-picking reads cover art, so skip it
+            // for the many changes that don't touch sources (e.g. every slider tick).
+            if (!ReferenceEquals(settings.Sources, appliedSources))
+            {
+                appliedSources = settings.Sources;
+                _ = media.SetSourcesAsync(settings.Sources);
+            }
+
             // The widget and tray icon sit on the taskbar, which always follows the system theme.
             var isTaskbarLight = _taskbar.UsesLightTheme();
             var isLight = settings.Look.Theme switch
@@ -109,6 +117,7 @@ public partial class App : Application
 
         ApplySettings(_settings.Current);
         _settings.Changed += (_, settings) => ApplySettings(settings);
+        media.SourcesSeen += (_, appIds) => Dispatcher.InvokeAsync(() => AddNewSources(appIds));
         _taskbar.ThemeChanged += (_, _) => Dispatcher.InvokeAsync(() =>
         {
             ApplySettings(_settings.Current);
@@ -117,10 +126,25 @@ public partial class App : Application
         widget.Show();
     }
 
+    /// <summary>Lists apps the first time they show up in Windows media controls: enabled, lowest priority.</summary>
+    private void AddNewSources(IReadOnlyList<string> appIds)
+    {
+        var known = _settings!.Current.Sources;
+        var added = appIds
+            .Where(id => !known.Any(source => string.Equals(source.AppId, id, StringComparison.OrdinalIgnoreCase)))
+            .Select(id => new SourceEntry(id))
+            .ToList();
+        if (added.Count == 0) return;
+
+        _settings.Update(settings => settings with { Sources = [.. settings.Sources, .. added] });
+    }
+
     private SettingsWindow CreateSettingsWindow()
     {
-        var window = new SettingsWindow { DataContext = new SettingsViewModel(_settings!) };
+        var viewModel = new SettingsViewModel(_settings!);
+        var window = new SettingsWindow { DataContext = viewModel };
         window.ApplyTheme(_settings!.Current.Look.Theme);
+        window.Closed += (_, _) => viewModel.Dispose();
         return window;
     }
 
