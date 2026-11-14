@@ -34,6 +34,7 @@ public partial class FlyoutWindow : Window
     private IntPtr _handle;
     private Rect _anchor;
     private TaskbarEdge _taskbarEdge = TaskbarEdge.Bottom;
+    private Rect _workArea = SystemParameters.WorkArea;
     /// <summary>Tick count of the last focus-loss hide; null until it first happens.</summary>
     private long? _hiddenByFocusLossAt;
 
@@ -71,7 +72,8 @@ public partial class FlyoutWindow : Window
 
     /// <param name="anchor">Widget bounds in DIPs.</param>
     /// <param name="taskbarEdge">The flyout opens on the side facing away from it (above a bottom taskbar, etc.).</param>
-    public void Toggle(Rect anchor, TaskbarEdge taskbarEdge)
+    /// <param name="workArea">The widget's monitor (DIPs); the flyout is kept inside it.</param>
+    public void Toggle(Rect anchor, TaskbarEdge taskbarEdge, Rect workArea)
     {
         if (IsVisible)
         {
@@ -83,6 +85,7 @@ public partial class FlyoutWindow : Window
         // Measure before showing so the flyout appears at its final position, without a jump.
         _anchor = anchor;
         _taskbarEdge = taskbarEdge;
+        _workArea = workArea;
         var content = (FrameworkElement)Content;
         content.Measure(new Size(Width, double.PositiveInfinity));
         PlaceNextToAnchor(content.DesiredSize.Height);
@@ -101,9 +104,10 @@ public partial class FlyoutWindow : Window
             _ => (_anchor.Left, _anchor.Top - height - GapToAnchorDip),
         };
 
-        // Next to a vertical taskbar it hangs down from the widget; keep it on screen near the bottom.
-        var workArea = SystemParameters.WorkArea;
-        Top = Math.Max(workArea.Top, Math.Min(Top, workArea.Bottom - height));
+        // Keep it on the widget's monitor: next to a vertical taskbar it hangs down from the widget, and docked right
+        // near the screen edge it would stick out sideways.
+        Top = Math.Max(_workArea.Top, Math.Min(Top, _workArea.Bottom - height));
+        Left = Math.Max(_workArea.Left, Math.Min(Left, _workArea.Right - Width));
     }
 
     private void OnProgressPressed(object sender, MouseButtonEventArgs e) => Player.IsSeeking = true;

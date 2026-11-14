@@ -61,9 +61,16 @@ public sealed record LayoutSettings
     /// <summary>Left of the taskbar icons (default), or right of them next to the tray.</summary>
     public WidgetAnchor Anchor { get; init; } = WidgetAnchor.LeftOfIcons;
 
+    /// <summary>
+    /// Which monitor's taskbar, e.g. "\\.\DISPLAY1"; null = the primary one (follows Windows). An unplugged monitor
+    /// falls back to the primary taskbar until it's back.
+    /// </summary>
+    public string? MonitorDevice { get; init; }
+
     public LayoutSettings Normalize() => this with
     {
         Anchor = Enum.IsDefined(Anchor) ? Anchor : WidgetAnchor.LeftOfIcons,
+        MonitorDevice = string.IsNullOrWhiteSpace(MonitorDevice) ? null : MonitorDevice.Trim(),
         LeftOffset = SettingsMath.ClampOrDefault(LeftOffset, MinLeftOffset, MaxLeftOffset, 8),
         MaxWidgetWidth = SettingsMath.ClampOrDefault(MaxWidgetWidth, MinWidgetWidth, MaxWidgetWidthLimit, 240),
         CoverSize = SettingsMath.ClampOrDefault(CoverSize, MinCoverSize, MaxCoverSize, 32),

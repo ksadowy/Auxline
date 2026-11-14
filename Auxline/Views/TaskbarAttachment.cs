@@ -47,6 +47,7 @@ internal sealed class TaskbarAttachment : IDisposable
 
     private IntPtr _handle;
     private IntPtr _taskbarWindow;
+    private string? _monitorDevice;
     private bool _isFullscreenAppOpen;
     private bool _isTaskbarSlidAway;
 
@@ -62,6 +63,9 @@ internal sealed class TaskbarAttachment : IDisposable
     /// </summary>
     public bool ShouldHide => _isFullscreenAppOpen || _isTaskbarSlidAway;
 
+    /// <summary>The taskbar this window sits on (falls back to the primary one if the chosen monitor is gone).</summary>
+    public TaskbarInfo? CurrentTaskbar => _taskbar.FindTaskbar(_monitorDevice);
+
     /// <summary>Attach before the window is shown; the work starts once its handle exists.</summary>
     public TaskbarAttachment(Window window, TaskbarService taskbar)
     {
@@ -74,7 +78,7 @@ internal sealed class TaskbarAttachment : IDisposable
             _raiseTimer.Stop();
             RaiseAboveTaskbar();
             // Safety net in case a fullscreen open/close notification was missed.
-            SetFullscreenAppOpen(IsFullscreenAppRunning());
+            SetFullscreenAppOpen(IsFullscreenAppRunning() && IsForegroundFullscreenOnMyMonitor());
         };
         _settleTimer = new DispatcherTimer { Interval = SettleDelay };
         _settleTimer.Tick += (_, _) =>
@@ -94,6 +98,18 @@ internal sealed class TaskbarAttachment : IDisposable
 
     public void RaiseAboveTaskbar() =>
         SetWindowPos(_handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+
+    /// <summary>Moves to another monitor's taskbar (null = primary); applies live.</summary>
+    public void SelectMonitor(string? monitorDevice)
+    {
+        if (monitorDevice == _monitorDevice) return;
+        _monitorDevice = monitorDevice;
+        if (_handle == IntPtr.Zero) return; // attached once the window's handle exists
+
+        AttachToTaskbar();
+        UpdateTaskbarSlidAway();
+        LayoutMayHaveChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     public void Dispose()
     {
@@ -119,7 +135,7 @@ internal sealed class TaskbarAttachment : IDisposable
         // because this runs inside Show(), which would undo a Hide() made by a handler right now.
         _window.Dispatcher.BeginInvoke(() =>
         {
-            SetFullscreenAppOpen(IsFullscreenAppRunning());
+            SetFullscreenAppOpen(IsFullscreenAppRunning() && IsForegroundFullscreenOnMyMonitor());
             UpdateTaskbarSlidAway();
         });
     }
@@ -148,7 +164,8 @@ internal sealed class TaskbarAttachment : IDisposable
         }
         else if (msg == AppBarNotifyMessage && wParam == ABN_FULLSCREENAPP)
         {
-            SetFullscreenAppOpen(lParam != IntPtr.Zero);
+            // The notification doesn't say which monitor; a fullscreen video on the other display shouldn't hide us.
+            SetFullscreenAppOpen(lParam != IntPtr.Zero && IsForegroundFullscreenOnMyMonitor());
         }
         return IntPtr.Zero;
     }
@@ -168,7 +185,7 @@ internal sealed class TaskbarAttachment : IDisposable
     /// </summary>
     private void AttachToTaskbar()
     {
-        _taskbarWindow = _taskbar.FindTaskbarWindow();
+        _taskbarWindow = CurrentTaskbar?.Window ?? IntPtr.Zero;
         if (_taskbarWindow == IntPtr.Zero)
         {
             Trace.TraceWarning("Taskbar window not found; widget may end up behind the taskbar.");
@@ -204,12 +221,12 @@ internal sealed class TaskbarAttachment : IDisposable
         _taskbarMovedHook = IntPtr.Zero;
     }
 
-    /// <summary>Anywhere but its docked position (the app bar rectangle) counts as slid away or sliding.</summary>
+    /// <summary>Anywhere but its docked position counts as slid away or sliding.</summary>
     private void UpdateTaskbarSlidAway()
     {
-        if (!GetWindowRect(_taskbarWindow, out var actual) || _taskbar.GetTaskbarPlacement() is not { } placement) return;
+        if (!GetWindowRect(_taskbarWindow, out var actual) || CurrentTaskbar is not { } taskbar) return;
 
-        var docked = placement.Bounds;
+        var docked = taskbar.Placement.Bounds;
         var isSlidAway = actual.Left != docked.X || actual.Top != docked.Y;
         if (isSlidAway == _isTaskbarSlidAway) return;
         UpdateShouldHide(() => _isTaskbarSlidAway = isSlidAway);
@@ -239,6 +256,16 @@ internal sealed class TaskbarAttachment : IDisposable
     private static bool IsFullscreenAppRunning() =>
         SHQueryUserNotificationState(out var state) >= 0
         && state is QUNS_BUSY or QUNS_RUNNING_D3D_FULL_SCREEN or QUNS_PRESENTATION_MODE;
+
+    /// <summary>The active window covers this taskbar's whole monitor (only meaningful while a fullscreen app runs).</summary>
+    private bool IsForegroundFullscreenOnMyMonitor()
+    {
+        if (CurrentTaskbar is not { } taskbar || !GetWindowRect(GetForegroundWindow(), out var foreground)) return false;
+
+        var monitor = taskbar.MonitorBounds;
+        return foreground.Left <= monitor.X && foreground.Top <= monitor.Y
+            && foreground.Right >= monitor.X + monitor.Width && foreground.Bottom >= monitor.Y + monitor.Height;
+    }
 
     private void SetFullscreenAppOpen(bool isOpen)
     {

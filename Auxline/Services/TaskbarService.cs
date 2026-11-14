@@ -23,9 +23,14 @@ public readonly record struct TaskbarPlacement(Int32Rect Bounds, TaskbarEdge Edg
     public bool IsVertical => Edge is TaskbarEdge.Left or TaskbarEdge.Right;
 }
 
+/// <param name="Window">The taskbar window (primary: Shell_TrayWnd, others: Shell_SecondaryTrayWnd).</param>
+/// <param name="MonitorDevice">Stable-ish monitor ID, e.g. "\\.\DISPLAY1"; what the settings store.</param>
+/// <param name="WorkArea">The monitor's area without taskbars, in physical pixels.</param>
+public sealed record TaskbarInfo(IntPtr Window, string MonitorDevice, bool IsPrimary, TaskbarPlacement Placement, Int32Rect MonitorBounds, Int32Rect WorkArea);
+
 /// <summary>
-/// Primary taskbar: window handle, geometry and theme, plus a foreground-window hook.
-/// Create on the UI thread: the WinEvent hook delivers callbacks through that thread's message loop.
+/// The taskbars (one per monitor with "show taskbar on all displays"): windows, geometry and theme, plus a
+/// foreground-window hook. Create on the UI thread: the WinEvent hook delivers callbacks through that thread's loop.
 /// </summary>
 public sealed class TaskbarService : IDisposable
 {
@@ -61,11 +66,36 @@ public sealed class TaskbarService : IDisposable
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
     }
 
-    /// <returns>Primary taskbar window, or IntPtr.Zero when Explorer isn't running.</returns>
-    public IntPtr FindTaskbarWindow() => FindWindow(TaskbarWindowClass, null);
+    /// <summary>All taskbars, primary first. Empty when Explorer isn't running.</summary>
+    public IReadOnlyList<TaskbarInfo> GetTaskbars()
+    {
+        var windows = new List<IntPtr>();
+        var primary = FindWindow(TaskbarWindowClass, null);
+        if (primary != IntPtr.Zero) windows.Add(primary);
+
+        var secondary = IntPtr.Zero;
+        while ((secondary = FindWindowEx(IntPtr.Zero, secondary, SecondaryTaskbarWindowClass, null)) != IntPtr.Zero)
+        {
+            windows.Add(secondary);
+        }
+
+        return windows.Select(Describe).OfType<TaskbarInfo>().ToList();
+    }
 
     /// <summary>
-    /// Buttons on the taskbar (Start, search, pinned/running apps, tray icons) via UI Automation.
+    /// The taskbar on the given monitor, or the primary one when <paramref name="monitorDevice"/> is null or that
+    /// monitor (or its taskbar) is gone, e.g. unplugged, or "show taskbar on all displays" turned off.
+    /// </summary>
+    public TaskbarInfo? FindTaskbar(string? monitorDevice)
+    {
+        var taskbars = GetTaskbars();
+        return taskbars.FirstOrDefault(t => monitorDevice is not null && t.MonitorDevice == monitorDevice)
+            ?? taskbars.FirstOrDefault(t => t.IsPrimary)
+            ?? taskbars.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Buttons on a taskbar (Start, search, pinned/running apps, tray icons) via UI Automation.
     /// A cross-process query (~75 ms), so call it off the UI thread.
     /// </summary>
     /// <returns>
@@ -74,9 +104,8 @@ public sealed class TaskbarService : IDisposable
     /// while the taskbar's context menu is open (for as long as it stays open) and for ~1 s while it re-lays out
     /// after being moved or realigned.
     /// </returns>
-    public IReadOnlyList<Rect>? GetButtonBounds()
+    public IReadOnlyList<Rect>? GetButtonBounds(IntPtr taskbarWindow)
     {
-        var taskbarWindow = FindTaskbarWindow();
         if (taskbarWindow == IntPtr.Zero) return null;
 
         try
@@ -107,17 +136,27 @@ public sealed class TaskbarService : IDisposable
         }
     }
 
-    /// <returns>Primary taskbar's docked bounds and edge, or null when Explorer reports no taskbar.</returns>
-    public TaskbarPlacement? GetTaskbarPlacement()
+    /// <summary>
+    /// The docked position is derived from the window and its monitor (<see cref="TaskbarGeometry.Dock"/>): the app bar
+    /// query only knows the primary taskbar, and this also stays correct while an auto-hidden taskbar is slid away.
+    /// </summary>
+    private static TaskbarInfo? Describe(IntPtr window)
     {
-        var data = new APPBARDATA { cbSize = (uint)Marshal.SizeOf<APPBARDATA>() };
-        if (SHAppBarMessage(ABM_GETTASKBARPOS, ref data) == UIntPtr.Zero) return null;
+        var monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
+        var info = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>() };
+        if (!GetWindowRect(window, out var windowRect) || !GetMonitorInfo(monitor, ref info)) return null;
 
-        var rect = data.rc;
-        var bounds = new Int32Rect(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
-        var edge = Enum.IsDefined((TaskbarEdge)data.uEdge) ? (TaskbarEdge)data.uEdge : TaskbarEdge.Bottom;
-        return new TaskbarPlacement(bounds, edge);
+        var monitorBounds = ToInt32Rect(info.rcMonitor);
+        return new TaskbarInfo(
+            window,
+            info.szDevice,
+            IsPrimary: (info.dwFlags & MONITORINFOF_PRIMARY) != 0,
+            TaskbarGeometry.Dock(ToInt32Rect(windowRect), monitorBounds),
+            monitorBounds,
+            ToInt32Rect(info.rcWork));
     }
+
+    private static Int32Rect ToInt32Rect(RECT rect) => new(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
 
     /// <summary>The taskbar follows the system theme (not the app theme).</summary>
     public bool UsesLightTheme()

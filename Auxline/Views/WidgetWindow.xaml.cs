@@ -53,6 +53,9 @@ public partial class WidgetWindow : Window
     /// <summary>Which screen edge the taskbar is on, so the flyout opens towards the screen's centre.</summary>
     public TaskbarEdge TaskbarEdge { get; private set; } = TaskbarEdge.Bottom;
 
+    /// <summary>Usable area of the widget's monitor in DIPs, so the flyout stays on that monitor.</summary>
+    public Rect MonitorWorkArea { get; private set; } = SystemParameters.WorkArea;
+
     public WidgetWindow(TaskbarService taskbar)
     {
         InitializeComponent();
@@ -84,6 +87,7 @@ public partial class WidgetWindow : Window
         _offsetDip = layout.LeftOffset;
         _maxWidthSettingDip = layout.MaxWidgetWidth;
         _anchor = layout.Anchor;
+        _attachment.SelectMonitor(layout.MonitorDevice);
         CoverImage.Width = layout.CoverSize;
         CoverImage.Height = layout.CoverSize;
         if (_handle != IntPtr.Zero) Reposition();
@@ -133,16 +137,19 @@ public partial class WidgetWindow : Window
 
     private void Reposition()
     {
-        if (_taskbar.GetTaskbarPlacement() is not { } placement)
+        if (_attachment.CurrentTaskbar is not { } taskbarInfo)
         {
             Trace.TraceWarning("Taskbar not found; widget position unchanged.");
             return;
         }
 
+        var placement = taskbarInfo.Placement;
         TaskbarEdge = placement.Edge;
         var taskbar = placement.Bounds;
         var isVertical = placement.IsVertical;
         var scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        var workArea = taskbarInfo.WorkArea;
+        MonitorWorkArea = new Rect(workArea.X / scale, workArea.Y / scale, workArea.Width / scale, workArea.Height / scale);
 
         // Thickness = the taskbar's short side. The cover-size setting is in DIPs, but the taskbar's DIP thickness
         // shrinks with scaling (48 px at 125% ≈ 38 DIP), so the cover is capped to fit.
@@ -235,7 +242,8 @@ public partial class WidgetWindow : Window
         var request = ++_latestMeasureRequest;
         for (var attempt = 0; ; attempt++)
         {
-            var buttons = await Task.Run(_taskbar.GetButtonBounds);
+            var taskbarWindow = _attachment.CurrentTaskbar?.Window ?? IntPtr.Zero;
+            var buttons = await Task.Run(() => _taskbar.GetButtonBounds(taskbarWindow));
             if (request != _latestMeasureRequest) return;
 
             if (buttons is not null) _buttons = buttons;

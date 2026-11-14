@@ -14,6 +14,13 @@ namespace Auxline.ViewModels;
 /// <summary>A dropdown entry: the setting's value with a readable label.</summary>
 public sealed record AnchorOption(WidgetAnchor Value, string Label);
 
+/// <param name="Device">Monitor device name, or <see cref="PrimaryDevice"/> for "follow the primary monitor".</param>
+public sealed record MonitorOption(string Device, string Label)
+{
+    /// <summary>WPF dropdowns can't select a null value, so "primary" is an empty string here and null in the settings.</summary>
+    public const string PrimaryDevice = "";
+}
+
 /// <summary>
 /// Settings window state. Every change is applied live and saved by <see cref="SettingsService"/>.
 /// Dispose when the window closes: it listens to the long-lived settings service.
@@ -39,6 +46,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private WidgetAnchor _anchor;
+
+    [ObservableProperty]
+    private string _monitorDevice = MonitorOption.PrimaryDevice;
 
     [ObservableProperty]
     private ThemePreference _theme;
@@ -97,9 +107,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     /// <summary>Priority order: first = preferred.</summary>
     public ObservableCollection<SourceItemViewModel> Sources { get; } = [];
 
-    public SettingsViewModel(SettingsService settings)
+    public IReadOnlyList<MonitorOption> MonitorOptions { get; }
+
+    public SettingsViewModel(SettingsService settings, IReadOnlyList<MonitorOption> monitorOptions)
     {
         _settings = settings;
+        MonitorOptions = monitorOptions;
         AvailableFonts = ListInstalledFonts(settings.Current.Look.FontFamily);
         FilteredFonts = AvailableFonts;
         Load(settings.Current);
@@ -159,6 +172,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     partial void OnCoverSizeChanged(double value) => UpdateLayout(layout => layout with { CoverSize = value });
 
     partial void OnAnchorChanged(WidgetAnchor value) => UpdateLayout(layout => layout with { Anchor = value });
+
+    partial void OnMonitorDeviceChanged(string value) =>
+        UpdateLayout(layout => layout with { MonitorDevice = value == MonitorOption.PrimaryDevice ? null : value });
 
     partial void OnThemeChanged(ThemePreference value) => UpdateLook(look => look with { Theme = value });
 
@@ -238,6 +254,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         MaxWidgetWidth = settings.Layout.MaxWidgetWidth;
         CoverSize = settings.Layout.CoverSize;
         Anchor = settings.Layout.Anchor;
+        MonitorDevice = settings.Layout.MonitorDevice ?? MonitorOption.PrimaryDevice;
         Theme = settings.Look.Theme;
         FontFamily = settings.Look.FontFamily;
         SelectedFontInList = settings.Look.FontFamily;

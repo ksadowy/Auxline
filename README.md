@@ -15,7 +15,7 @@ Works with Spotify and any other app that reports to Windows media controls (bro
 - [x] Source selection: choose which apps (Spotify, browsers, etc.) the widget connects to, and their priority
 - [x] Customization: position, size, colors, fonts, acrylic/blur, corner style
 - [x] Auto-hide when a fullscreen app or game is running
-- [ ] Multi-monitor (DPI-aware already)
+- [x] Multi-monitor: choose which monitor's taskbar (per-monitor DPI-aware)
 - [x] Start with Windows
 - [x] Tray icon with settings and exit
 
@@ -145,7 +145,11 @@ Auxline/
   - Left/right: cover only (no title/artist) in a cell as wide as the taskbar and as tall as the cover + margins (fits the gap between apps and tray), placed top→bottom in a free gap; flyout opens beside it, kept on screen
 - [x] React to taskbar moves and alignment changes immediately (`WM_SETTINGCHANGE`), re-measure once icons settle
 - [x] `TaskbarAttachment` class: ownership, topmost, app bar notifications, fullscreen/auto-hide state (split out of `WidgetWindow`)
-- [ ] Multi-monitor support (choose which taskbar)
+- [x] Multi-monitor support (choose which taskbar)
+  - All taskbars: `Shell_TrayWnd` + `Shell_SecondaryTrayWnd` windows; docked bounds/edge derived from window + monitor rects (`TaskbarGeometry.Dock`), since the app bar query only knows the primary
+  - Setting: monitor device (e.g. `\\.\DISPLAY1`), null = primary; an unplugged monitor falls back to the primary taskbar
+  - Ownership, auto-hide hook, button measuring, placement and the flyout's work area follow the chosen taskbar
+  - Fullscreen hiding only when the fullscreen app covers the widget's own monitor
 - [x] Never cover taskbar icons (auto-fit)
   - Button positions via UI Automation (`Shell_TrayWnd` descendants), measured off the UI thread at startup, on display changes, after an Explorer restart and 800 ms after foreground changes
   - The widget stays in a free gap; if the offset points into icons it stops right before them; hidden only when no gap has room
@@ -155,7 +159,7 @@ Auxline/
   - Sits in the last free gap before the tray, right edge fixed (distance counts from the tray), grows to the left
   - Pushed into the app icons it stops right after them; on vertical taskbars: below the icons, above the tray
 - [x] Settings window + JSON persistence (`%AppData%\Auxline\settings.json`, debounced atomic saves, live apply)
-  - [x] Position tab: placement (left / right of the icons), distance, max width, cover size (capped to the taskbar height)
+  - [x] Position tab: monitor, placement (left / right of the icons), distance, max width, cover size (capped to the taskbar height)
   - [x] Appearance tab: theme, font (searchable list), font sizes, text colour (colour wheel + hex), flyout corners, acrylic
   - [x] Sources tab: per-app on/off and priority
   - [x] Follows Windows light/dark switches live (widget, tray icon, flyout)

@@ -33,7 +33,6 @@ internal static class NativeMethods
 
     public const uint ABM_NEW = 0x00000000;
     public const uint ABM_REMOVE = 0x00000001;
-    public const uint ABM_GETTASKBARPOS = 0x00000005;
     public const int ABN_FULLSCREENAPP = 0x0000002;
 
     public const int QUNS_BUSY = 2;
@@ -41,6 +40,7 @@ internal static class NativeMethods
     public const int QUNS_PRESENTATION_MODE = 4;
 
     public const string TaskbarWindowClass = "Shell_TrayWnd";
+    public const string SecondaryTaskbarWindowClass = "Shell_SecondaryTrayWnd";
 
     public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
     public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
@@ -71,6 +71,21 @@ internal static class NativeMethods
     {
         public int X;
         public int Y;
+    }
+
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
+    public const uint MONITORINFOF_PRIMARY = 1;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct MONITORINFOEX
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string szDevice;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -108,9 +123,22 @@ internal static class NativeMethods
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr FindWindowEx(IntPtr hWndParent, IntPtr hWndChildAfter, string? lpszClass, string? lpszWindow);
+
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFOEX lpmi);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
 
     /// <returns>Thread ID; <paramref name="processId"/> receives the owning process.</returns>
     [DllImport("user32.dll")]

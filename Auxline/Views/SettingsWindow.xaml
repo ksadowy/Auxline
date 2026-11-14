@@ -58,6 +58,18 @@
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
                                 <ComboBox DockPanel.Dock="Right" Width="260" VerticalAlignment="Center"
+                                          ItemsSource="{Binding MonitorOptions}" DisplayMemberPath="Label"
+                                          SelectedValuePath="Device" SelectedValue="{Binding MonitorDevice}" />
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Style="{StaticResource SettingTitle}" Text="Monitor" />
+                                    <TextBlock Style="{StaticResource SettingHint}" Text="Which taskbar the widget sits on. Needs &quot;Show my taskbar on all displays&quot; for other monitors; unplugged ones fall back to the primary." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Width="260" VerticalAlignment="Center"
                                           ItemsSource="{Binding AnchorOptions}" DisplayMemberPath="Label"
                                           SelectedValuePath="Value" SelectedValue="{Binding Anchor}" />
                                 <StackPanel Margin="0,0,16,0">
