@@ -145,18 +145,18 @@ public sealed class FlyoutStyleRenderTests
     /// <summary>The properties the styles bind to, with realistic values (bindings work by name on any object).</summary>
     private sealed class SamplePlayer
     {
-        public string Title => "Make Me Bad";
-        public string Artist => "Korn";
-        public string Album => "Issues";
+        public string Title => "Blinding Lights";
+        public string Artist => "The Weeknd";
+        public string Album => "After Hours";
         public string SourceName => "Spotify";
         public BitmapSource Cover { get; } = SolidCover(Color.FromRgb(196, 106, 46));
         public bool IsPlaying => true;
         public bool HasTimeline => true;
         public bool CanSeek => true;
         public double PositionSeconds { get; set; } = 83;
-        public double DurationSeconds => 232;
+        public double DurationSeconds => 200;
         public string PositionText => "1:23";
-        public string DurationText => "3:52";
+        public string DurationText => "3:20";
         public double VolumePercent { get; set; } = 62;
         public bool HasAudioSession => true;
 
