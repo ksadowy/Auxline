@@ -54,6 +54,10 @@ Name: autostart; Description: "Start Auxline when I sign in"
 ; (%AppData%\Auxline, %LocalAppData%\Auxline).
 Type: filesandordirs; Name: "{app}\*"
 
+[UninstallDelete]
+; That wipe also replaces the uninstall log, so after an update it no longer records creating the folder.
+Type: dirifempty; Name: "{app}"
+
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
