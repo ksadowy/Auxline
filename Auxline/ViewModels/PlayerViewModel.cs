@@ -1,5 +1,7 @@
 using System.IO;
 using System.Windows.Media.Imaging;
+using Auxline.Controls;
+using Color = System.Windows.Media.Color;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,18 +15,27 @@ public sealed partial class PlayerViewModel : ObservableObject
 {
     private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(500);
 
+    /// <summary>20 readings a second: smooth enough for the meter, cheap enough to run all the time music plays.</summary>
+    private static readonly TimeSpan MeterInterval = TimeSpan.FromMilliseconds(50);
+
     private readonly MediaService _media;
     private readonly VolumeService _volumeService;
     private readonly DispatcherTimer _progressTimer;
+    private readonly DispatcherTimer _meterTimer;
     private string? _processName;
     private MediaTimeline? _timeline;
     private bool _isProgressShown;
+    private bool _isMeterShown;
 
     [ObservableProperty]
     private bool _hasTrack;
 
     [ObservableProperty]
     private string _source = "";
+
+    /// <summary>Readable name of the playing app (e.g. "Spotify", "Zen"), for the native flyout style's header.</summary>
+    [ObservableProperty]
+    private string _sourceName = "";
 
     [ObservableProperty]
     private string _title = "";
@@ -52,6 +63,10 @@ public sealed partial class PlayerViewModel : ObservableObject
     [ObservableProperty]
     private BitmapImage? _cover;
 
+    /// <summary>Dominant colour of the cover (null without one), for the cover-tinted flyout style.</summary>
+    [ObservableProperty]
+    private Color? _coverColor;
+
     [ObservableProperty]
     private string _status = "";
 
@@ -63,6 +78,10 @@ public sealed partial class PlayerViewModel : ObservableObject
 
     [ObservableProperty]
     private string _volumeStatus = "";
+
+    /// <summary>How loud the playing app is right now, 0..1, for the widget's music meter (0 while it's not shown).</summary>
+    [ObservableProperty]
+    private double _audioLevel;
 
     [ObservableProperty]
     private bool _hasTimeline;
@@ -92,6 +111,8 @@ public sealed partial class PlayerViewModel : ObservableObject
         _volumeService = volumeService;
         _progressTimer = new DispatcherTimer(DispatcherPriority.Background, dispatcher) { Interval = ProgressInterval };
         _progressTimer.Tick += (_, _) => ShowPosition();
+        _meterTimer = new DispatcherTimer(DispatcherPriority.Background, dispatcher) { Interval = MeterInterval };
+        _meterTimer.Tick += (_, _) => ShowAudioLevel();
 
         Show(null);
         _media.TrackChanged += (_, track) => dispatcher.InvokeAsync(() => Show(track));
@@ -105,6 +126,13 @@ public sealed partial class PlayerViewModel : ObservableObject
         IsSeeking = false;
         ShowPosition();
         UpdateProgressTimer();
+    }
+
+    /// <summary>The level is only read while the meter is visible and music plays, so a hidden or paused one costs no CPU.</summary>
+    public void SetMeterShown(bool isShown)
+    {
+        _isMeterShown = isShown;
+        UpdateMeterTimer();
     }
 
     [RelayCommand]
@@ -140,6 +168,7 @@ public sealed partial class PlayerViewModel : ObservableObject
     {
         HasTrack = track is not null;
         Source = track?.SourceAppId ?? "-";
+        SourceName = track is null ? "" : AppIdentity.ToDisplayName(track.SourceAppId);
         Title = track?.Title ?? "Nothing playing";
         Artist = track?.Artist ?? "";
         Album = track?.Album ?? "";
@@ -148,9 +177,11 @@ public sealed partial class PlayerViewModel : ObservableObject
         CanSkipNext = track?.CanSkipNext ?? false;
         CanSkipPrevious = track?.CanSkipPrevious ?? false;
         Cover = track?.Thumbnail is { } bytes ? ToBitmap(bytes) : null;
+        CoverColor = Cover is null ? null : CoverPalette.DominantColor(Cover);
         _processName = track is null ? null : AppIdentity.ToProcessName(track.SourceAppId);
         ShowVolume();
         ShowTimeline(track?.Timeline);
+        UpdateMeterTimer();
     }
 
     private void ShowTimeline(MediaTimeline? timeline)
@@ -178,6 +209,18 @@ public sealed partial class PlayerViewModel : ObservableObject
 
     private static string FormatTime(TimeSpan time) =>
         time.ToString(time.TotalHours >= 1 ? @"h\:mm\:ss" : @"m\:ss");
+
+    private void UpdateMeterTimer()
+    {
+        _meterTimer.IsEnabled = _isMeterShown && IsPlaying && _processName is not null;
+        if (!_meterTimer.IsEnabled) AudioLevel = 0;
+    }
+
+    private void ShowAudioLevel()
+    {
+        if (_processName is null) return;
+        AudioLevel = MeterBallistics.Next(AudioLevel, _volumeService.GetPeak(_processName));
+    }
 
     /// <summary>Re-read on every track/playback event, which also picks up changes made in the Windows mixer.</summary>
     private void ShowVolume()

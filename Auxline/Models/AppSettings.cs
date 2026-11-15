@@ -58,12 +58,30 @@ public sealed record LayoutSettings
 
     public double CoverSize { get; init; } = 32;
 
+    /// <summary>Left of the taskbar icons (default), or right of them next to the tray.</summary>
+    public WidgetAnchor Anchor { get; init; } = WidgetAnchor.LeftOfIcons;
+
+    /// <summary>
+    /// Which monitor's taskbar, e.g. "\\.\DISPLAY1"; null = the primary one (follows Windows). An unplugged monitor
+    /// falls back to the primary taskbar until it's back.
+    /// </summary>
+    public string? MonitorDevice { get; init; }
+
     public LayoutSettings Normalize() => this with
     {
+        Anchor = Enum.IsDefined(Anchor) ? Anchor : WidgetAnchor.LeftOfIcons,
+        MonitorDevice = string.IsNullOrWhiteSpace(MonitorDevice) ? null : MonitorDevice.Trim(),
         LeftOffset = SettingsMath.ClampOrDefault(LeftOffset, MinLeftOffset, MaxLeftOffset, 8),
         MaxWidgetWidth = SettingsMath.ClampOrDefault(MaxWidgetWidth, MinWidgetWidth, MaxWidgetWidthLimit, 240),
         CoverSize = SettingsMath.ClampOrDefault(CoverSize, MinCoverSize, MaxCoverSize, 32),
     };
+}
+
+/// <summary>On vertical taskbars: above the icons / below them, next to the tray.</summary>
+public enum WidgetAnchor
+{
+    LeftOfIcons,
+    RightOfIcons,
 }
 
 public enum ThemePreference
@@ -71,6 +89,53 @@ public enum ThemePreference
     System,
     Light,
     Dark,
+}
+
+/// <summary>Flyout layouts (designs on the "Auxline – flyout styles" canvas).</summary>
+public enum FlyoutStyle
+{
+    /// <summary>Cover left, three text lines, progress, controls, volume.</summary>
+    Classic,
+
+    /// <summary>Like Windows' own media flyout: app name, cover right, accent-coloured play button.</summary>
+    Native,
+
+    /// <summary>Full-width cover, centred title, big play button.</summary>
+    BigCover,
+
+    /// <summary>Background and accent taken from the album art.</summary>
+    CoverTinted,
+
+    /// <summary>One row: cover, title, play/pause, next, volume; progress line along the bottom.</summary>
+    Compact,
+
+    /// <summary>Cover, title, one line (progress, or volume via the speaker icon / mouse wheel), three icons.</summary>
+    Minimalist,
+}
+
+/// <summary>
+/// The flyout's look (colours, font, control shapes, animations), applied to whichever <see cref="FlyoutStyle"/>
+/// layout is chosen. Designs on the "Auxline – flyout styles" canvas.
+/// </summary>
+public enum FlyoutTheme
+{
+    /// <summary>Windows 11 look: follows light/dark, acrylic, the chosen font and corners.</summary>
+    Default,
+
+    /// <summary>Four-shade green handheld LCD, pixel font, blocky controls.</summary>
+    GameBoy,
+
+    /// <summary>Black CRT with scanlines and neon, arcade font, round arcade buttons, pellet progress.</summary>
+    Arcade,
+
+    /// <summary>Warm walnut hi-fi: the cover spins as a record, aluminium keys, amber accent.</summary>
+    Vinyl,
+
+    /// <summary>Green phosphor console: monospace, text-like controls, block bars.</summary>
+    Terminal,
+
+    /// <summary>Calm dark navy with thin blue lines, ruler progress (made for dark blue space wallpapers).</summary>
+    Orbit,
 }
 
 public enum CornerStyle
@@ -99,6 +164,13 @@ public sealed partial record LookSettings
     /// <summary>Widget text as #RRGGBB or #AARRGGBB; null = automatic (contrasts with the taskbar).</summary>
     public string? TextColor { get; init; }
 
+    public FlyoutStyle FlyoutStyle { get; init; } = FlyoutStyle.Classic;
+
+    public FlyoutTheme FlyoutTheme { get; init; } = FlyoutTheme.Default;
+
+    /// <summary>Bars next to the widget's title that follow how loud the music plays, in the flyout theme's style.</summary>
+    public bool ShowMusicMeter { get; init; } = true;
+
     public CornerStyle FlyoutCorners { get; init; } = CornerStyle.Round;
 
     public bool UseAcrylic { get; init; } = true;
@@ -110,6 +182,8 @@ public sealed partial record LookSettings
         TitleFontSize = SettingsMath.ClampOrDefault(TitleFontSize, MinFontSize, MaxFontSize, 12),
         ArtistFontSize = SettingsMath.ClampOrDefault(ArtistFontSize, MinFontSize, MaxFontSize, 11),
         TextColor = IsHexColor(TextColor) ? TextColor!.ToUpperInvariant() : null,
+        FlyoutStyle = Enum.IsDefined(FlyoutStyle) ? FlyoutStyle : FlyoutStyle.Classic,
+        FlyoutTheme = Enum.IsDefined(FlyoutTheme) ? FlyoutTheme : FlyoutTheme.Default,
         FlyoutCorners = Enum.IsDefined(FlyoutCorners) ? FlyoutCorners : CornerStyle.Round,
     };
 

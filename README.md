@@ -1,3 +1,5 @@
+<img src="assets/logo/auxline-mark-512.png" alt="Auxline logo" width="128">
+
 # Auxline
 
 A lightweight, customizable media widget for the Windows 11 taskbar. It shows the current track (cover art, title, artist) in the empty area on the left side of the taskbar. Clicking it opens a flyout with playback controls and volume.
@@ -15,7 +17,7 @@ Works with Spotify and any other app that reports to Windows media controls (bro
 - [x] Source selection: choose which apps (Spotify, browsers, etc.) the widget connects to, and their priority
 - [x] Customization: position, size, colors, fonts, acrylic/blur, corner style
 - [x] Auto-hide when a fullscreen app or game is running
-- [ ] Multi-monitor (DPI-aware already)
+- [x] Multi-monitor: choose which monitor's taskbar (per-monitor DPI-aware)
 - [x] Start with Windows
 - [x] Tray icon with settings and exit
 
@@ -136,15 +138,30 @@ Auxline/
   - App bar registration (`ABM_NEW`, no `ABM_SETPOS`, so no reserved space) → `ABN_FULLSCREENAPP` open/close notifications
   - `SHQueryUserNotificationState` at startup and after foreground changes as a safety net
 - [x] Hide when nothing is playing (content collapses, window shrinks to zero width)
-- [ ] Handle taskbar auto-hide
-- [ ] Multi-monitor support (choose which taskbar)
+- [x] Handle taskbar auto-hide
+  - Windows 11 moves the taskbar window itself (jumps back when shown, slides down ~280 ms when hidden, 2 px stay on screen)
+  - `EVENT_OBJECT_LOCATIONCHANGE` hook limited to Explorer's process; not at its docked position = hidden → widget hides
+  - Hiding (instead of sliding along) keeps the 2 px edge free for the mouse to bring the taskbar back
+- [x] Taskbar edge (Windows 11 only docks at the bottom without hacks/tools)
+  - Top: flyout opens below the widget
+  - Left/right: cover only (no title/artist) in a cell as wide as the taskbar and as tall as the cover + margins (fits the gap between apps and tray), placed top→bottom in a free gap; flyout opens beside it, kept on screen
+- [x] React to taskbar moves and alignment changes immediately (`WM_SETTINGCHANGE`), re-measure once icons settle
+- [x] `TaskbarAttachment` class: ownership, topmost, app bar notifications, fullscreen/auto-hide state (split out of `WidgetWindow`)
+- [x] Multi-monitor support (choose which taskbar)
+  - All taskbars: `Shell_TrayWnd` + `Shell_SecondaryTrayWnd` windows; docked bounds/edge derived from window + monitor rects (`TaskbarGeometry.Dock`), since the app bar query only knows the primary
+  - Setting: monitor device (e.g. `\\.\DISPLAY1`), null = primary; an unplugged monitor falls back to the primary taskbar
+  - Ownership, auto-hide hook, button measuring, placement and the flyout's work area follow the chosen taskbar
+  - Fullscreen hiding only when the fullscreen app covers the widget's own monitor
 - [x] Never cover taskbar icons (auto-fit)
   - Button positions via UI Automation (`Shell_TrayWnd` descendants), measured off the UI thread at startup, on display changes, after an Explorer restart and 800 ms after foreground changes
   - The widget stays in a free gap; if the offset points into icons it stops right before them; hidden only when no gap has room
   - Placement uses the last measurement synchronously, so moving the widget never waits for (or races) the query
-- [ ] Option: dock to the right of the icons (needed for left-aligned taskbars)
+  - UI Automation reports no buttons at all while the taskbar's context menu is open and for ~1 s while it re-lays out: an empty result counts as unknown (last layout kept, retried 5× every 500 ms); docked right, an unknown layout hides the widget instead of covering the tray
+- [x] Option: dock to the right of the icons (needed for left-aligned taskbars)
+  - Sits in the last free gap before the tray, right edge fixed (distance counts from the tray), grows to the left
+  - Pushed into the app icons it stops right after them; on vertical taskbars: below the icons, above the tray
 - [x] Settings window + JSON persistence (`%AppData%\Auxline\settings.json`, debounced atomic saves, live apply)
-  - [x] Position tab: left offset, max width, cover size (capped to the taskbar height)
+  - [x] Position tab: monitor, placement (left / right of the icons), distance, max width, cover size (capped to the taskbar height)
   - [x] Appearance tab: theme, font (searchable list), font sizes, text colour (colour wheel + hex), flyout corners, acrylic
   - [x] Sources tab: per-app on/off and priority
   - [x] Follows Windows light/dark switches live (widget, tray icon, flyout)
@@ -155,11 +172,33 @@ Auxline/
   - User-defined priority order replaces the hardcoded "prefer Spotify" rule (Spotify first by default)
   - Note: filtering is per app, not per site (GSMTC reports `chrome.exe`, not "YouTube")
 - [ ] Design polish pass once features are complete (collect notes here)
+  - [x] Flyout styles, selectable in Appearance: Classic, Native Windows 11, Big cover, Cover-tinted, Compact, Minimalist
+    - Minimalist: one line for progress or volume (speaker toggle or mouse wheel, back to progress after 3 s), system accent colour; narrower (280 vs 320), so each style sets its own width
+    - Designed on a Claude Design canvas first; one XAML `UserControl` per style (`Views/FlyoutStyles/`), shared building blocks in `FlyoutResources.xaml`
+    - Native: Windows' accent colour (`SystemColors.AccentColorLight2/Dark1`); Cover-tinted: dominant colour of the album art (`CoverPalette`, contrast ≥ 3:1 tested)
+  - [x] Flyout themes (the look, applied to every style): Default, Pixel · Game Boy, Pixel · Arcade, Vinyl, Terminal, Orbit
+    - One `ResourceDictionary` per theme (`Views/Themes/`) merged into the flyout window: colours, control templates (buttons, sliders), `ThemedIcon` icons, `CoverArt` frame, and a frame template around the layout. Styles only use `DynamicResource` keys, so a theme swaps everything live. Shared parts: `FluentIcons`, `PixelIcons`, `SliderParts`; Vinyl and Orbit build on the default theme
+    - Default: Windows 11 look, colours from `FlyoutPalette` (light/dark, system accent). Other themes have a `FixedLook`: own palette, font, corners, window border colour (`DWMWA_BORDER_COLOR`) and background (acrylic off)
+    - Game Boy: four LCD greens, Silkscreen pixel font, pixel-art icons, square keys with a hard shadow, progress/volume as blocks (`SegmentBar`)
+    - Arcade: CRT scanlines and neon outline, Press Start 2P font, round arcade buttons, "1UP · NOW PLAYING" header, pellet progress (`PelletBar`), rising volume bars
+    - Vinyl: walnut and amber, the cover as a spinning record label, aluminium keys with a play light
+    - Terminal: phosphor green, monospace, title bar with the source and a cursor, text icons, boxed buttons that invert on hover, `[█████░░░]` bars, the cover in green through its brightness (`LuminanceMaskConverter`)
+    - Orbit: dark navy with thin blue lines (for dark blue wallpapers), outlined buttons, ruler progress/volume (`RulerBar`)
+    - Pixel fonts are bundled (`Fonts/`, SIL Open Font License); the others are Windows fonts (Bahnschrift, Cascadia Mono)
+    - Buttons with their own face colour set `ThemedIcon.IconBrush` (layouts set button Foreground for the default look, and content inherits from the button, not the template)
+    - Animations run only while the flyout is visible and music plays (`ThemeAnimation.IsActive`, discrete ones at 10 fps); one-shot transitions on track change (`ThemeAnimation.TrackChanged`). Game Boy: blinking progress block, fade-in through the shades. Arcade: blinking 1UP, header equaliser, rolling CRT band, pulsing/twinkling pellets, flash + "READY!". Vinyl: spinning record. Terminal: blinking cursor and progress block, flicker
+    - Every style × theme × light/dark rendered by a test, and every theme's animations started once (`FlyoutStyleRenderTests`; `AUXLINE_RENDER_DIR` saves PNGs)
+  - [x] Music meter in the widget, styled per theme, driven by the playing app's loudness (setting, on by default)
+    - Level: the app's Core Audio session peak (`AudioMeterInformation.MasterPeakValue`, the loudest of its sessions), read 20×/s only while the meter is visible and music plays; session lookups cached for 2 s
+    - One loudness value, not frequency bands: each bar sways at its own speed around it (`LevelMeter`), the level jumps up at once and falls back gradually (`MeterBallistics`, square root so quiet music still moves)
+    - Looks: Default rounded bars in the text colour, Game Boy / Terminal stepped blocks, Arcade neon bars, Vinyl a VU needle, Orbit thin blue lines. Hidden on vertical taskbars; stays (flat) while paused so the width doesn't jump
+    - Follows the signal before the app's mixer volume, so a muted app still moves it
 - [x] Autostart via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
   - Respects Task Manager's Startup toggle (`Explorer\StartupApproved\Run`, odd first byte = disabled)
 - [x] Tray icon (start with Windows, debug window, exit; settings once the settings window exists)
   - Native menu (`TrackPopupMenuEx`): a WPF ContextMenu closes instantly when the icon is in the overflow flyout
-- [ ] Dark tray menu in dark mode (native menus are light by default)
+- [x] Dark tray menu in dark mode (native menus are light by default)
+  - Undocumented `uxtheme` ordinals #135 `SetPreferredAppMode` (force dark/light) + #136 `FlushMenuThemes`; follows the taskbar theme live; falls back to light if missing
 - [x] Single-instance check (named mutex)
 - [x] Runs in the background; debug window only on demand
 - [x] Log file (`%LocalAppData%\Auxline\logs\auxline.log`, 1 MB + 1 backup) and global error handlers
@@ -169,6 +208,8 @@ Auxline/
 - [ ] Publish as a single file: `dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true`
 - [ ] Measure RAM/CPU over a longer session
 - [ ] Optional installer (Inno Setup / MSIX)
+- [x] Logo ("wave to line") and icons, rendered by `tools/build-icons.ps1`: `assets/logo/` (SVG, PNG), `Auxline/Assets/` (`Auxline.ico` app icon 16–256 px, `TrayLight.ico` / `TrayDark.ico` one-colour tray icons)
+- [ ] Use them: `ApplicationIcon` in the project, tray icon from `TrayLight`/`TrayDark` instead of the Segoe glyph
 
 ---
 
@@ -179,6 +220,7 @@ Auxline/
 - **Spotify timeline data** is not continuous, so the progress bar has to be interpolated.
 - **Firefox-based browsers** (Firefox, Zen, LibreWolf…) report the timeline only on pause/resume and clear it on their own, so without help the progress bar appears only after the first pause of each track. Chromium-based browsers report it continuously. Fix: the optional userscript in [Extras](#extras).
 - **Opera / Opera GX** likely won't get volume control: their Start menu entry points to `launcher.exe`, while audio plays from `opera.exe` (untested).
+- **Taskbar position.** Windows 11 only docks the taskbar at the bottom. Top works only via an unofficial registry hack, left/right only via third-party tools (ExplorerPatcher, Windhawk). Auxline adapts (flyout below / beside; cover-only widget on vertical taskbars), but these layouts get less testing.
 - **Multiple media sessions.** When a browser and Spotify both play, the Sources priority list decides; with nothing playing, Windows' current session is shown.
 
 ---

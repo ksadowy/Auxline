@@ -10,6 +10,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The flyout style render test uses the (internal) palette. -->
+    <InternalsVisibleTo Include="Auxline.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pixel themes' fonts (SIL Open Font License, see the *-OFL.txt next to them). -->
+    <Resource Include="Fonts\*.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />

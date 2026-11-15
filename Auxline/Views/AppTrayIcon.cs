@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using H.NotifyIcon;
+using Auxline.Interop;
 using Auxline.Services;
 using static Auxline.Interop.NativeMethods;
 
@@ -54,10 +55,16 @@ public sealed class AppTrayIcon : IDisposable
         // Created in code (not in a visual tree), so it must be created explicitly.
         // Efficiency mode would throttle the process and delay media/progress updates.
         _icon.ForceCreate(enablesEfficiencyMode: false);
+        NativeMenuTheme.Apply(isDark: !isLightTheme);
     }
 
-    /// <summary>Re-renders the icon when the taskbar switches between light and dark.</summary>
-    public void ApplyTheme(bool isTaskbarLight) => _icon.IconSource = CreateIconSource(isTaskbarLight);
+    /// <summary>Re-renders the icon and re-themes the menu when the taskbar switches between light and dark.</summary>
+    public void ApplyTheme(bool isTaskbarLight)
+    {
+        _icon.IconSource = CreateIconSource(isTaskbarLight);
+        // Like Windows' own tray menus, follow the taskbar (system theme).
+        NativeMenuTheme.Apply(isDark: !isTaskbarLight);
+    }
 
     /// <summary>Removes the icon right away; otherwise a dead icon lingers until hovered.</summary>
     public void Dispose()

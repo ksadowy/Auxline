@@ -80,7 +80,7 @@ public partial class App : Application
 
         var flyout = new FlyoutWindow { DataContext = player };
         var widget = new WidgetWindow(_taskbar) { DataContext = player };
-        widget.Clicked += (_, _) => flyout.Toggle(widget.Bounds);
+        widget.Clicked += (_, _) => flyout.Toggle(widget.Bounds, widget.TaskbarEdge, widget.MonitorWorkArea);
 
         var executablePath = Environment.ProcessPath
             ?? throw new InvalidOperationException("Cannot determine the Auxline executable path.");
@@ -126,6 +126,28 @@ public partial class App : Application
         widget.Show();
     }
 
+    /// <summary>
+    /// "Primary" plus one entry per monitor that has a taskbar. A chosen monitor that's unplugged stays listed, so the
+    /// setting isn't silently changed by opening the window.
+    /// </summary>
+    private List<MonitorOption> ListMonitorOptions()
+    {
+        var options = new List<MonitorOption> { new(MonitorOption.PrimaryDevice, "Primary monitor (follows Windows)") };
+        options.AddRange(_taskbar!.GetTaskbars().Select(taskbar => new MonitorOption(
+            taskbar.MonitorDevice,
+            $"{DisplayName(taskbar.MonitorDevice)} – {taskbar.MonitorBounds.Width}×{taskbar.MonitorBounds.Height}" +
+            (taskbar.IsPrimary ? " (currently primary)" : ""))));
+
+        if (_settings!.Current.Layout.MonitorDevice is { } chosen && options.All(option => option.Device != chosen))
+        {
+            options.Add(new MonitorOption(chosen, $"{DisplayName(chosen)} (not connected)"));
+        }
+        return options;
+
+        // "\\.\DISPLAY4" → "Display 4"
+        static string DisplayName(string device) => "Display " + device.TrimStart('\\', '.').Replace("DISPLAY", "", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Lists apps the first time they show up in Windows media controls: enabled, lowest priority.</summary>
     private void AddNewSources(IReadOnlyList<string> appIds)
     {
@@ -141,7 +163,7 @@ public partial class App : Application
 
     private SettingsWindow CreateSettingsWindow()
     {
-        var viewModel = new SettingsViewModel(_settings!);
+        var viewModel = new SettingsViewModel(_settings!, ListMonitorOptions());
         var window = new SettingsWindow { DataContext = viewModel };
         window.ApplyTheme(_settings!.Current.Look.Theme);
         window.Closed += (_, _) => viewModel.Dispose();

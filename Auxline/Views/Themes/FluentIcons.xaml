@@ -1,0 +1,34 @@
+<!-- Windows 11 icons (Segoe Fluent glyphs) for ThemedIcon; merged into the themes that use them. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Auxline.Controls">
+
+    <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+    <ControlTemplate x:Key="ThemedIconTemplate" TargetType="controls:ThemedIcon">
+        <TextBlock x:Name="Glyph" FontFamily="{StaticResource IconFont}" Text="&#xE8D6;" Foreground="{TemplateBinding DisplayBrush}" />
+        <ControlTemplate.Triggers>
+            <Trigger Property="Kind" Value="Previous">
+                <Setter TargetName="Glyph" Property="Text" Value="&#xE892;" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Next">
+                <Setter TargetName="Glyph" Property="Text" Value="&#xE893;" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Play">
+                <Setter TargetName="Glyph" Property="Text" Value="&#xE768;" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Pause">
+                <Setter TargetName="Glyph" Property="Text" Value="&#xE769;" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Volume">
+                <Setter TargetName="Glyph" Property="Text" Value="&#xE767;" />
+            </Trigger>
+            <Trigger Property="Kind" Value="VolumeLow">
+                <Setter TargetName="Glyph" Property="Text" Value="&#xE992;" />
+            </Trigger>
+            <Trigger Property="Kind" Value="VolumeHigh">
+                <Setter TargetName="Glyph" Property="Text" Value="&#xE995;" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+</ResourceDictionary>

@@ -1,21 +1,28 @@
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Auxline.Controls;
 using Auxline.Interop;
 using Auxline.Models;
+using Auxline.Services;
 using Auxline.ViewModels;
+using Auxline.Views.FlyoutStyles;
+using Auxline.Views.Themes;
 using static Auxline.Interop.NativeMethods;
 
 namespace Auxline.Views;
 
 /// <summary>
-/// Popup above the widget with cover art, progress, controls and volume. Reused: hidden, never closed.
-/// Closes when it loses focus (click anywhere else) or on Esc.
+/// Popup next to the widget with cover art, progress, controls and volume, in the chosen layout (FlyoutStyles).
+/// Reused: hidden, never closed. Closes when it loses focus (click anywhere else) or on Esc.
 /// </summary>
 public partial class FlyoutWindow : Window
 {
-    private const double GapAboveAnchorDip = 12;
+    /// <summary>Space between the flyout and the widget (taskbar).</summary>
+    private const double GapToAnchorDip = 12;
 
     /// <summary>
     /// Clicking the widget while the flyout is open first deactivates (hides) the flyout on mouse down, then raises
@@ -23,14 +30,22 @@ public partial class FlyoutWindow : Window
     /// </summary>
     private const long ReopenGuardMilliseconds = 300;
 
-    /// <summary>Used when acrylic is off or unsupported; same tints as Windows 11 flyouts.</summary>
-    private static readonly Brush LightSolidBackground = Freeze(new SolidColorBrush(Color.FromRgb(0xF3, 0xF3, 0xF3)));
-    private static readonly Brush DarkSolidBackground = Freeze(new SolidColorBrush(Color.FromRgb(0x20, 0x20, 0x20)));
+    /// <summary>Each style names its seek bar this way; the window handles seeking for all of them.</summary>
+    private const string ProgressSliderName = "ProgressSlider";
 
     private LookSettings _look = new();
+    /// <summary>Null while the theme follows the settings (Default).</summary>
+    private FixedLook? _fixedLook;
+    /// <summary>The flyout's effective light/dark: the setting, unless the theme has a fixed look.</summary>
     private bool _isLight;
+    private FlyoutStyle? _appliedStyle;
+    private (FlyoutTheme Theme, bool IsLight)? _appliedTheme;
+    /// <summary>The current theme's dictionary (merged into the window's resources).</summary>
+    private ResourceDictionary _themeResources = new();
     private IntPtr _handle;
     private Rect _anchor;
+    private TaskbarEdge _taskbarEdge = TaskbarEdge.Bottom;
+    private Rect _workArea = SystemParameters.WorkArea;
     /// <summary>Tick count of the last focus-loss hide; null until it first happens.</summary>
     private long? _hiddenByFocusLossAt;
 
@@ -39,6 +54,7 @@ public partial class FlyoutWindow : Window
     public FlyoutWindow()
     {
         InitializeComponent();
+        SetResourceReference(ForegroundProperty, "FlyoutForegroundBrush");
 
         SourceInitialized += OnSourceInitialized;
         Deactivated += (_, _) =>
@@ -47,11 +63,18 @@ public partial class FlyoutWindow : Window
             Hide();
         };
         KeyDown += OnKeyDown;
-        IsVisibleChanged += (_, _) => Player.SetProgressShown(IsVisible);
-        // Content can grow while open (e.g. the progress bar appears); keep the bottom edge above the widget.
+        PreviewMouseLeftButtonDown += OnPreviewMouseDown;
+        PreviewMouseLeftButtonUp += OnPreviewMouseUp;
+        IsVisibleChanged += (_, _) =>
+        {
+            Player.SetProgressShown(IsVisible);
+            UpdateThemeAnimation();
+        };
+        DataContextChanged += OnDataContextChanged;
+        // Content can grow while open (e.g. the progress bar appears); keep the edge facing the widget in place.
         SizeChanged += (_, e) =>
         {
-            if (IsVisible && e.HeightChanged) PlaceAboveAnchor(ActualHeight);
+            if (IsVisible) PlaceNextToAnchor(e.NewSize);
         };
     }
 
@@ -60,14 +83,67 @@ public partial class FlyoutWindow : Window
     public void ApplyLook(LookSettings look, bool isLight)
     {
         _look = look;
-        _isLight = isLight;
-        Foreground = isLight ? Brushes.Black : Brushes.White;
-        FontFamily = new FontFamily(look.FontFamily);
+        _fixedLook = FlyoutThemes.FixedLookOf(look.FlyoutTheme);
+        _isLight = _fixedLook?.IsLight ?? isLight;
+        FontFamily = _fixedLook?.Font ?? new FontFamily(look.FontFamily);
+
+        // Swapping the theme re-applies every template: only when it changes, not on every settings change.
+        if (_appliedTheme != (look.FlyoutTheme, _isLight))
+        {
+            _appliedTheme = (look.FlyoutTheme, _isLight);
+            _themeResources = FlyoutThemes.CreateResources(look.FlyoutTheme, _isLight);
+            Resources.MergedDictionaries.Clear();
+            Resources.MergedDictionaries.Add(_themeResources);
+            ApplyCoverColors();
+        }
+
+        // Recreate the layout only when the style changes: rebuilding resets things like the compact volume toggle.
+        if (look.FlyoutStyle != _appliedStyle)
+        {
+            _appliedStyle = look.FlyoutStyle;
+            StyleHost.Content = FlyoutStyleFactory.Create(look.FlyoutStyle);
+        }
         if (_handle != IntPtr.Zero) ApplyFrame();
     }
 
-    /// <param name="anchor">Widget bounds in DIPs; the flyout opens above it, left-aligned.</param>
-    public void Toggle(Rect anchor)
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is PlayerViewModel oldPlayer) oldPlayer.PropertyChanged -= OnPlayerPropertyChanged;
+        if (e.NewValue is PlayerViewModel newPlayer) newPlayer.PropertyChanged += OnPlayerPropertyChanged;
+    }
+
+    private void OnPlayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(PlayerViewModel.CoverColor):
+                ApplyCoverColors();
+                break;
+            case nameof(PlayerViewModel.IsPlaying):
+                UpdateThemeAnimation();
+                break;
+            case nameof(PlayerViewModel.Title) when IsVisible:
+                ThemeFrame.RaiseEvent(new RoutedEventArgs(ThemeAnimation.TrackChangedEvent));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The cover-tinted style's colours from the album art, unless the theme has a fixed look (which defines them).
+    /// Written into the theme's dictionary, so switching themes drops them.
+    /// </summary>
+    private void ApplyCoverColors()
+    {
+        if (_fixedLook is null) FlyoutPalette.ApplyCover(_themeResources, (DataContext as PlayerViewModel)?.CoverColor, _isLight);
+    }
+
+    /// <summary>Theme animations loop only while they can be seen and the music plays.</summary>
+    private void UpdateThemeAnimation() => ThemeAnimation.SetIsActive(this, IsVisible && Player.IsPlaying);
+
+    /// <param name="anchor">Widget bounds in DIPs.</param>
+    /// <param name="taskbarEdge">The flyout opens on the side facing away from it (above a bottom taskbar, etc.).</param>
+    /// <param name="workArea">The widget's monitor (DIPs); the flyout is kept inside it.</param>
+    public void Toggle(Rect anchor, TaskbarEdge taskbarEdge, Rect workArea)
     {
         if (IsVisible)
         {
@@ -78,27 +154,57 @@ public partial class FlyoutWindow : Window
 
         // Measure before showing so the flyout appears at its final position, without a jump.
         _anchor = anchor;
+        _taskbarEdge = taskbarEdge;
+        _workArea = workArea;
+        // Each style sets its own width (Minimalist is narrower).
         var content = (FrameworkElement)Content;
-        content.Measure(new Size(Width, double.PositiveInfinity));
-        PlaceAboveAnchor(content.DesiredSize.Height);
+        content.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        PlaceNextToAnchor(content.DesiredSize);
 
         Show();
         Activate();
     }
 
-    private void PlaceAboveAnchor(double height)
+    private void PlaceNextToAnchor(Size size)
     {
-        Left = _anchor.Left;
-        Top = _anchor.Top - height - GapAboveAnchorDip;
+        var (width, height) = (size.Width, size.Height);
+        (Left, Top) = _taskbarEdge switch
+        {
+            TaskbarEdge.Top => (_anchor.Left, _anchor.Bottom + GapToAnchorDip),
+            TaskbarEdge.Left => (_anchor.Right + GapToAnchorDip, _anchor.Top),
+            TaskbarEdge.Right => (_anchor.Left - width - GapToAnchorDip, _anchor.Top),
+            _ => (_anchor.Left, _anchor.Top - height - GapToAnchorDip),
+        };
+
+        // Keep it on the widget's monitor: next to a vertical taskbar it hangs down from the widget, and docked right
+        // near the screen edge it would stick out sideways.
+        Top = Math.Max(_workArea.Top, Math.Min(Top, _workArea.Bottom - height));
+        Left = Math.Max(_workArea.Left, Math.Min(Left, _workArea.Right - width));
     }
 
-    private void OnProgressPressed(object sender, MouseButtonEventArgs e) => Player.IsSeeking = true;
+    /// <summary>Pressing the seek bar pauses position updates, so they don't fight the thumb.</summary>
+    private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (IsOnProgressSlider(e.OriginalSource as DependencyObject)) Player.IsSeeking = true;
+    }
 
     /// <summary>Seek once on release (click or end of drag), not on every value change while dragging.</summary>
-    private void OnProgressReleased(object sender, MouseButtonEventArgs e)
+    private void OnPreviewMouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (!Player.IsSeeking) return;
         Player.IsSeeking = false;
         Player.SeekCommand.Execute(null);
+    }
+
+    private static bool IsOnProgressSlider(DependencyObject? element)
+    {
+        // Text runs aren't visuals; anything clicked on a slider is.
+        while (element is Visual)
+        {
+            if (element is Slider { Name: ProgressSliderName }) return true;
+            element = VisualTreeHelper.GetParent(element);
+        }
+        return false;
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -119,18 +225,15 @@ public partial class FlyoutWindow : Window
 
     private void ApplyFrame()
     {
-        var hasAcrylic = WindowBackdrop.Apply(_handle, isDark: !_isLight, _look.FlyoutCorners, _look.UseAcrylic);
-        Background = hasAcrylic ? Brushes.Transparent : _isLight ? LightSolidBackground : DarkSolidBackground;
+        var useAcrylic = _fixedLook is null && _look.UseAcrylic;
+        var hasAcrylic = WindowBackdrop.Apply(_handle, isDark: !_isLight, _fixedLook?.Corners ?? _look.FlyoutCorners, useAcrylic);
+        WindowBackdrop.SetBorderColor(_handle, _fixedLook?.BorderColor);
+        if (hasAcrylic) Background = Brushes.Transparent;
+        else SetResourceReference(BackgroundProperty, "FlyoutBackgroundBrush");
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape) Hide();
-    }
-
-    private static Brush Freeze(Brush brush)
-    {
-        brush.Freeze();
-        return brush;
     }
 }

@@ -19,6 +19,7 @@ internal static class NativeMethods
     public const int WS_POPUP = unchecked((int)0x80000000);
 
     public const int WM_DISPLAYCHANGE = 0x007E;
+    public const int WM_SETTINGCHANGE = 0x001A;
     public const uint WM_NULL = 0x0000;
 
     public const uint MF_STRING = 0x0000;
@@ -32,7 +33,6 @@ internal static class NativeMethods
 
     public const uint ABM_NEW = 0x00000000;
     public const uint ABM_REMOVE = 0x00000001;
-    public const uint ABM_GETTASKBARPOS = 0x00000005;
     public const int ABN_FULLSCREENAPP = 0x0000002;
 
     public const int QUNS_BUSY = 2;
@@ -40,13 +40,20 @@ internal static class NativeMethods
     public const int QUNS_PRESENTATION_MODE = 4;
 
     public const string TaskbarWindowClass = "Shell_TrayWnd";
+    public const string SecondaryTaskbarWindowClass = "Shell_SecondaryTrayWnd";
 
     public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
     public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+    public const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
+    public const int OBJID_WINDOW = 0;
 
     public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    public const int DWMWA_BORDER_COLOR = 34;
     public const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
+    /// <summary>For DWMWA_BORDER_COLOR: back to the system's border colour.</summary>
+    public const int DWMWA_COLOR_DEFAULT = unchecked((int)0xFFFFFFFF);
     public const int DWMWCP_DONOTROUND = 1;
     public const int DWMWCP_ROUND = 2;
     public const int DWMWCP_ROUNDSMALL = 3;
@@ -67,6 +74,21 @@ internal static class NativeMethods
     {
         public int X;
         public int Y;
+    }
+
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
+    public const uint MONITORINFOF_PRIMARY = 1;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct MONITORINFOEX
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string szDevice;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -103,6 +125,27 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr FindWindowEx(IntPtr hWndParent, IntPtr hWndChildAfter, string? lpszClass, string? lpszWindow);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFOEX lpmi);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    /// <returns>Thread ID; <paramref name="processId"/> receives the owning process.</returns>
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     [DllImport("user32.dll")]
     public static extern IntPtr SetWinEventHook(

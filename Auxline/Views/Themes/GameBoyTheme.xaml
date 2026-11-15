@@ -1,0 +1,218 @@
+<!--
+    Game Boy flyout theme: the four shades of a green handheld LCD, pixel font (FlyoutThemes), pixel icons, square
+    buttons with a hard shadow, progress and volume as blocks. Animations: the progress block being filled blinks
+    while playing; a new track fades in through the shades.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Auxline.Controls">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="PixelIcons.xaml" />
+        <ResourceDictionary Source="SliderParts.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <Color x:Key="GbDarkestColor">#0F380F</Color>
+    <Color x:Key="GbDarkColor">#306230</Color>
+    <Color x:Key="GbLightColor">#8BAC0F</Color>
+    <Color x:Key="GbLightestColor">#9BBC0F</Color>
+
+    <SolidColorBrush x:Key="GbDarkest" Color="{StaticResource GbDarkestColor}" />
+    <SolidColorBrush x:Key="GbDark" Color="{StaticResource GbDarkColor}" />
+    <SolidColorBrush x:Key="GbLight" Color="{StaticResource GbLightColor}" />
+    <SolidColorBrush x:Key="GbLightest" Color="{StaticResource GbLightestColor}" />
+
+    <!-- The keys every theme defines (see FlyoutPalette for what they're used for). -->
+    <SolidColorBrush x:Key="FlyoutForegroundBrush" Color="{StaticResource GbDarkestColor}" />
+    <SolidColorBrush x:Key="FlyoutBackgroundBrush" Color="{StaticResource GbLightestColor}" />
+    <SolidColorBrush x:Key="FlyoutSecondaryTextBrush" Color="{StaticResource GbDarkColor}" />
+    <SolidColorBrush x:Key="FlyoutTertiaryTextBrush" Color="{StaticResource GbDarkColor}" />
+    <SolidColorBrush x:Key="FlyoutTrackBrush" Color="{StaticResource GbLightColor}" />
+    <SolidColorBrush x:Key="FlyoutSliderFillBrush" Color="{StaticResource GbDarkestColor}" />
+    <SolidColorBrush x:Key="FlyoutHoverBrush" Color="{StaticResource GbLightestColor}" />
+    <SolidColorBrush x:Key="FlyoutPressedBrush" Color="{StaticResource GbLightColor}" />
+    <SolidColorBrush x:Key="FlyoutSeparatorBrush" Color="{StaticResource GbDarkColor}" />
+    <SolidColorBrush x:Key="FlyoutPrimaryButtonBrush" Color="{StaticResource GbDarkestColor}" />
+    <SolidColorBrush x:Key="FlyoutPrimaryButtonForegroundBrush" Color="{StaticResource GbLightestColor}" />
+    <SolidColorBrush x:Key="FlyoutAccentBrush" Color="{StaticResource GbDarkestColor}" />
+    <SolidColorBrush x:Key="FlyoutAccentForegroundBrush" Color="{StaticResource GbLightestColor}" />
+
+    <!-- The cover-tinted style stays on the LCD palette instead of the album art's colours. -->
+    <SolidColorBrush x:Key="CoverTintBrush" Color="{StaticResource GbLightestColor}" />
+    <SolidColorBrush x:Key="CoverAccentBrush" Color="{StaticResource GbDarkestColor}" />
+    <SolidColorBrush x:Key="CoverAccentForegroundBrush" Color="{StaticResource GbLightestColor}" />
+    <SolidColorBrush x:Key="CoverTextBrush" Color="{StaticResource GbDarkestColor}" />
+    <SolidColorBrush x:Key="CoverSecondaryTextBrush" Color="{StaticResource GbDarkColor}" />
+
+    <!-- Green LCD with a dark outline; a new track fades in from blank through the shades. -->
+    <ControlTemplate x:Key="FlyoutFrameTemplate" TargetType="ContentControl">
+        <Grid TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="Aliased">
+            <Border Background="{StaticResource GbLightest}" BorderBrush="{StaticResource GbDarkest}" BorderThickness="3">
+                <ContentPresenter />
+            </Border>
+            <Border x:Name="Fade" Background="{StaticResource GbLightest}" Opacity="0" IsHitTestVisible="False" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <EventTrigger RoutedEvent="controls:ThemeAnimation.TrackChanged">
+                <BeginStoryboard>
+                    <Storyboard FillBehavior="Stop">
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Fade" Storyboard.TargetProperty="Opacity">
+                            <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                            <DiscreteDoubleKeyFrame KeyTime="0:0:0.15" Value="0.66" />
+                            <DiscreteDoubleKeyFrame KeyTime="0:0:0.3" Value="0.33" />
+                            <DiscreteDoubleKeyFrame KeyTime="0:0:0.45" Value="0" />
+                        </DoubleAnimationUsingKeyFrames>
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="CoverArtTemplate" TargetType="controls:CoverArt">
+        <Border BorderBrush="{StaticResource GbDarkest}" BorderThickness="3" Background="{StaticResource GbDark}">
+            <Border>
+                <Border.Background>
+                    <ImageBrush ImageSource="{Binding Source, RelativeSource={RelativeSource TemplatedParent}}" Stretch="UniformToFill" />
+                </Border.Background>
+            </Border>
+        </Border>
+    </ControlTemplate>
+
+    <!-- Square key with a hard shadow; pressing (or checking a toggle) pushes it onto the shadow. -->
+    <ControlTemplate x:Key="IconButtonTemplate" TargetType="ButtonBase">
+        <Grid>
+            <Border Margin="3,3,0,0" Background="{StaticResource GbDarkest}" />
+            <Border x:Name="Face" Margin="0,0,3,3" Background="{StaticResource GbLight}"
+                    BorderBrush="{StaticResource GbDarkest}" BorderThickness="2">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Face" Property="Background" Value="{StaticResource GbLightest}" />
+            </Trigger>
+            <Trigger Property="ToggleButton.IsChecked" Value="True">
+                <Setter TargetName="Face" Property="Margin" Value="3,3,0,0" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Face" Property="Margin" Value="3,3,0,0" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.35" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="PrimaryButtonTemplate" TargetType="Button">
+        <Grid>
+            <Border Margin="3,3,0,0" Background="{StaticResource GbDarkest}" />
+            <Border x:Name="Face" Margin="0,0,3,3" Background="{TemplateBinding Background}"
+                    BorderBrush="{StaticResource GbDarkest}" BorderThickness="2">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Face" Property="Background" Value="{StaticResource GbDark}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Face" Property="Margin" Value="3,3,0,0" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.35" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- Progress: the block being filled blinks while playing. Volume bars have no such block. -->
+    <ControlTemplate x:Key="FlyoutSliderTemplate" TargetType="Slider">
+        <Grid Height="20" Background="Transparent">
+            <controls:SegmentBar x:Name="Bar" Height="10" VerticalAlignment="Center"
+                                 Value="{TemplateBinding Value}" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                                 FilledBrush="{TemplateBinding Foreground}" EmptyBrush="{StaticResource GbLight}" />
+            <Track x:Name="PART_Track">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.DecreaseLarge" />
+                </Track.DecreaseRepeatButton>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.IncreaseLarge" />
+                </Track.IncreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb Focusable="False" Template="{StaticResource InvisibleThumb}" />
+                </Track.Thumb>
+            </Track>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="Name" Value="ProgressSlider">
+                <Setter TargetName="Bar" Property="ActiveBrush" Value="{StaticResource GbDark}" />
+            </Trigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="Name" Value="ProgressSlider" />
+                    <Condition Property="controls:ThemeAnimation.IsActive" Value="True" />
+                </MultiTrigger.Conditions>
+                <MultiTrigger.EnterActions>
+                    <BeginStoryboard x:Name="Blink">
+                        <Storyboard Timeline.DesiredFrameRate="10">
+                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Bar" Storyboard.TargetProperty="ActiveOpacity"
+                                                           Duration="0:0:1" RepeatBehavior="Forever">
+                                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                                <DiscreteDoubleKeyFrame KeyTime="0:0:0.5" Value="0" />
+                            </DoubleAnimationUsingKeyFrames>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
+                    <StopStoryboard BeginStoryboardName="Blink" />
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="FlyoutSliderThinTemplate" TargetType="Slider">
+        <Grid Height="12" Background="Transparent">
+            <controls:SegmentBar x:Name="Bar" Height="6" VerticalAlignment="Center" SegmentLength="10"
+                                 Value="{TemplateBinding Value}" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                                 FilledBrush="{TemplateBinding Foreground}" EmptyBrush="{StaticResource GbLight}" />
+            <Track x:Name="PART_Track">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.DecreaseLarge" />
+                </Track.DecreaseRepeatButton>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource SliderEmptyPart}" Command="Slider.IncreaseLarge" />
+                </Track.IncreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb Focusable="False" Template="{StaticResource InvisibleThumb}" />
+                </Track.Thumb>
+            </Track>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="Name" Value="ProgressSlider">
+                <Setter TargetName="Bar" Property="ActiveBrush" Value="{StaticResource GbDark}" />
+            </Trigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="Name" Value="ProgressSlider" />
+                    <Condition Property="controls:ThemeAnimation.IsActive" Value="True" />
+                </MultiTrigger.Conditions>
+                <MultiTrigger.EnterActions>
+                    <BeginStoryboard x:Name="Blink">
+                        <Storyboard Timeline.DesiredFrameRate="10">
+                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Bar" Storyboard.TargetProperty="ActiveOpacity"
+                                                           Duration="0:0:1" RepeatBehavior="Forever">
+                                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                                <DiscreteDoubleKeyFrame KeyTime="0:0:0.5" Value="0" />
+                            </DoubleAnimationUsingKeyFrames>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
+                    <StopStoryboard BeginStoryboardName="Blink" />
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+</ResourceDictionary>

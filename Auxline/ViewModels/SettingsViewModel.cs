@@ -11,6 +11,16 @@ using Auxline.Services;
 
 namespace Auxline.ViewModels;
 
+/// <summary>A dropdown entry: the setting's value with a readable label.</summary>
+public sealed record Choice<T>(T Value, string Label);
+
+/// <param name="Device">Monitor device name, or <see cref="PrimaryDevice"/> for "follow the primary monitor".</param>
+public sealed record MonitorOption(string Device, string Label)
+{
+    /// <summary>WPF dropdowns can't select a null value, so "primary" is an empty string here and null in the settings.</summary>
+    public const string PrimaryDevice = "";
+}
+
 /// <summary>
 /// Settings window state. Every change is applied live and saved by <see cref="SettingsService"/>.
 /// Dispose when the window closes: it listens to the long-lived settings service.
@@ -33,6 +43,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private double _coverSize;
+
+    [ObservableProperty]
+    private WidgetAnchor _anchor;
+
+    [ObservableProperty]
+    private string _monitorDevice = MonitorOption.PrimaryDevice;
 
     [ObservableProperty]
     private ThemePreference _theme;
@@ -71,10 +87,45 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private Color _pickerColor = Colors.White;
 
     [ObservableProperty]
+    private FlyoutStyle _flyoutStyle;
+
+    [ObservableProperty]
+    private FlyoutTheme _flyoutTheme;
+
+    [ObservableProperty]
+    private bool _showMusicMeter;
+
+    [ObservableProperty]
     private CornerStyle _flyoutCorners;
 
     [ObservableProperty]
     private bool _useAcrylic;
+
+    public IReadOnlyList<Choice<WidgetAnchor>> AnchorOptions { get; } =
+    [
+        new(WidgetAnchor.LeftOfIcons, "Left of the taskbar icons"),
+        new(WidgetAnchor.RightOfIcons, "Right of the icons, next to the tray"),
+    ];
+
+    public IReadOnlyList<Choice<FlyoutStyle>> FlyoutStyleOptions { get; } =
+    [
+        new(FlyoutStyle.Classic, "Classic"),
+        new(FlyoutStyle.Native, "Native Windows 11"),
+        new(FlyoutStyle.BigCover, "Big cover"),
+        new(FlyoutStyle.CoverTinted, "Cover-tinted"),
+        new(FlyoutStyle.Compact, "Compact"),
+        new(FlyoutStyle.Minimalist, "Minimalist"),
+    ];
+
+    public IReadOnlyList<Choice<FlyoutTheme>> FlyoutThemeOptions { get; } =
+    [
+        new(FlyoutTheme.Default, "Default (Windows 11)"),
+        new(FlyoutTheme.GameBoy, "Pixel · Game Boy"),
+        new(FlyoutTheme.Arcade, "Pixel · Arcade"),
+        new(FlyoutTheme.Vinyl, "Vinyl"),
+        new(FlyoutTheme.Terminal, "Terminal"),
+        new(FlyoutTheme.Orbit, "Orbit"),
+    ];
 
     public IReadOnlyList<ThemePreference> Themes { get; } = Enum.GetValues<ThemePreference>();
 
@@ -85,9 +136,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     /// <summary>Priority order: first = preferred.</summary>
     public ObservableCollection<SourceItemViewModel> Sources { get; } = [];
 
-    public SettingsViewModel(SettingsService settings)
+    public IReadOnlyList<MonitorOption> MonitorOptions { get; }
+
+    public SettingsViewModel(SettingsService settings, IReadOnlyList<MonitorOption> monitorOptions)
     {
         _settings = settings;
+        MonitorOptions = monitorOptions;
         AvailableFonts = ListInstalledFonts(settings.Current.Look.FontFamily);
         FilteredFonts = AvailableFonts;
         Load(settings.Current);
@@ -146,6 +200,11 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     partial void OnCoverSizeChanged(double value) => UpdateLayout(layout => layout with { CoverSize = value });
 
+    partial void OnAnchorChanged(WidgetAnchor value) => UpdateLayout(layout => layout with { Anchor = value });
+
+    partial void OnMonitorDeviceChanged(string value) =>
+        UpdateLayout(layout => layout with { MonitorDevice = value == MonitorOption.PrimaryDevice ? null : value });
+
     partial void OnThemeChanged(ThemePreference value) => UpdateLook(look => look with { Theme = value });
 
     partial void OnFontFamilyChanged(string value) => UpdateLook(look => look with { FontFamily = value });
@@ -172,6 +231,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     }
 
     partial void OnPickerColorChanged(Color value) => TextColor = $"#{value.R:X2}{value.G:X2}{value.B:X2}";
+
+    partial void OnFlyoutStyleChanged(FlyoutStyle value) => UpdateLook(look => look with { FlyoutStyle = value });
+
+    partial void OnFlyoutThemeChanged(FlyoutTheme value) => UpdateLook(look => look with { FlyoutTheme = value });
+
+    partial void OnShowMusicMeterChanged(bool value) => UpdateLook(look => look with { ShowMusicMeter = value });
 
     partial void OnFlyoutCornersChanged(CornerStyle value) => UpdateLook(look => look with { FlyoutCorners = value });
 
@@ -223,6 +288,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         LeftOffset = settings.Layout.LeftOffset;
         MaxWidgetWidth = settings.Layout.MaxWidgetWidth;
         CoverSize = settings.Layout.CoverSize;
+        Anchor = settings.Layout.Anchor;
+        MonitorDevice = settings.Layout.MonitorDevice ?? MonitorOption.PrimaryDevice;
         Theme = settings.Look.Theme;
         FontFamily = settings.Look.FontFamily;
         SelectedFontInList = settings.Look.FontFamily;
@@ -230,6 +297,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         ArtistFontSize = settings.Look.ArtistFontSize;
         UseCustomTextColor = settings.Look.TextColor is not null;
         TextColor = settings.Look.TextColor ?? DefaultCustomTextColor;
+        FlyoutStyle = settings.Look.FlyoutStyle;
+        FlyoutTheme = settings.Look.FlyoutTheme;
+        ShowMusicMeter = settings.Look.ShowMusicMeter;
         FlyoutCorners = settings.Look.FlyoutCorners;
         UseAcrylic = settings.Look.UseAcrylic;
         LoadSources(settings.Sources);
