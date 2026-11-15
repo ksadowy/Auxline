@@ -1,0 +1,60 @@
+# Release: push an annotated version tag, e.g.
+#   git tag -a v1.2.0 -m "Auxline 1.2.0"
+#   git push origin v1.2.0
+# Runs the tests, builds the installer (tools/build-release.ps1) and creates a draft GitHub release with it,
+# to review and publish by hand. A version with a suffix (v1.2.0-beta.1) becomes a pre-release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the draft release
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      # Actions pinned to commits (tags can be moved); the comment says which version.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check the tag
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          # Checkout fetches the tag as a plain commit; fetch the tag object itself to see what kind it is.
+          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
+          if ((git cat-file -t $tag) -ne 'tag') {
+            throw "$tag is a lightweight tag. Releases need an annotated one: git tag -a $tag -m ""..."""
+          }
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+(-[0-9A-Za-z][0-9A-Za-z.-]*)?)$') {
+            throw "$tag is not a version tag like v1.2.0 or v1.2.0-beta.1."
+          }
+          "VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        run: dotnet test Auxline.slnx --configuration Release
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build the installer
+        shell: pwsh
+        run: ./tools/build-release.ps1 -Version $env:VERSION
+
+      - name: Create a draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $arguments = @(
+            'release', 'create', $env:GITHUB_REF_NAME, "artifacts/Auxline-Setup-$env:VERSION.exe",
+            '--draft', '--verify-tag', '--generate-notes', '--title', "Auxline $env:VERSION"
+          )
+          if ($env:VERSION.Contains('-')) { $arguments += '--prerelease' }
+          gh @arguments

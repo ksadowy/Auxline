@@ -2,3 +2,5 @@ bin/
 obj/
 .vs/
 *.user
+# Release builds (tools/build-release.ps1)
+artifacts/
