@@ -7,6 +7,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Auxline.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Release builds get the version from the git tag (tools/build-release.ps1); local builds stay 0.0.0. -->
+    <VersionPrefix>0.0.0</VersionPrefix>
+    <Product>Auxline</Product>
+    <Authors>Krzysztof Sadowy</Authors>
+    <Copyright>Copyright © Krzysztof Sadowy</Copyright>
+    <Description>Media widget for the Windows 11 taskbar</Description>
+    <!-- The UI is English only: leave out the framework's translated resources (smaller install). -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +29,8 @@
   <ItemGroup>
     <!-- Pixel themes' fonts (SIL Open Font License, see the *-OFL.txt next to them). -->
     <Resource Include="Fonts\*.ttf" />
+    <!-- Tray icons (tools/build-icons.ps1); the app icon is embedded via ApplicationIcon. -->
+    <Resource Include="Assets\Tray*.ico" />
   </ItemGroup>
 
   <ItemGroup>

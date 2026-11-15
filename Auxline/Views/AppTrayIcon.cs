@@ -2,21 +2,17 @@ using System.IO;
 using System.Security;
 using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Media;
 using H.NotifyIcon;
 using Auxline.Interop;
 using Auxline.Services;
 using static Auxline.Interop.NativeMethods;
+using Icon = System.Drawing.Icon;
 
 namespace Auxline.Views;
 
 /// <summary>Notification-area icon: the app's only entry point for settings, autostart, the debug window and exit.</summary>
 public sealed class AppTrayIcon : IDisposable
 {
-    private const string MusicNoteGlyph = "";
-    private const string FluentIconsFont = "Segoe Fluent Icons";
-    private const string LegacyIconsFont = "Segoe MDL2 Assets";
-
     private enum MenuCommand
     {
         Dismissed = 0,
@@ -49,7 +45,7 @@ public sealed class AppTrayIcon : IDisposable
         _icon = new TaskbarIcon
         {
             ToolTipText = "Auxline",
-            IconSource = CreateIconSource(isLightTheme),
+            Icon = LoadIcon(isLightTheme),
         };
         _icon.TrayRightMouseUp += (_, _) => ShowMenu();
         // Created in code (not in a visual tree), so it must be created explicitly.
@@ -58,10 +54,12 @@ public sealed class AppTrayIcon : IDisposable
         NativeMenuTheme.Apply(isDark: !isLightTheme);
     }
 
-    /// <summary>Re-renders the icon and re-themes the menu when the taskbar switches between light and dark.</summary>
+    /// <summary>Swaps the icon and re-themes the menu when the taskbar switches between light and dark.</summary>
     public void ApplyTheme(bool isTaskbarLight)
     {
-        _icon.IconSource = CreateIconSource(isTaskbarLight);
+        var previous = _icon.Icon;
+        _icon.Icon = LoadIcon(isTaskbarLight);
+        previous?.Dispose();
         // Like Windows' own tray menus, follow the taskbar (system theme).
         NativeMenuTheme.Apply(isDark: !isTaskbarLight);
     }
@@ -69,23 +67,24 @@ public sealed class AppTrayIcon : IDisposable
     /// <summary>Removes the icon right away; otherwise a dead icon lingers until hovered.</summary>
     public void Dispose()
     {
+        var icon = _icon.Icon;
         _icon.Dispose();
+        icon?.Dispose();
         _menuOwner.Dispose();
     }
 
-    private static GeneratedIconSource CreateIconSource(bool isTaskbarLight) => new()
-    {
-        Text = MusicNoteGlyph,
-        FontFamily = new FontFamily(PickIconFont()),
-        Foreground = isTaskbarLight ? Brushes.Black : Brushes.White,
-    };
-
     /// <summary>
-    /// The icon is rendered via System.Drawing, which needs exactly one installed font name
-    /// (a WPF fallback list like "A, B" crashes it). Windows 11 has Fluent Icons; Windows 10 only MDL2.
+    /// The logo in one colour, like Windows' own tray icons: white on a dark taskbar, near-black on a light one
+    /// (Assets/Tray*.ico, made by tools/build-icons.ps1). The frame drawn for the notification area's icon size at the
+    /// current scaling is picked, instead of Windows shrinking a bigger one.
     /// </summary>
-    private static string PickIconFont() =>
-        Fonts.SystemFontFamilies.Any(font => font.Source == FluentIconsFont) ? FluentIconsFont : LegacyIconsFont;
+    internal static Icon LoadIcon(bool isTaskbarLight)
+    {
+        var uri = new Uri($"pack://application:,,,/Auxline;component/Assets/{(isTaskbarLight ? "TrayDark" : "TrayLight")}.ico");
+        using var stream = Application.GetResourceStream(uri)!.Stream;
+        var size = GetSystemMetricsForDpi(SM_CXSMICON, GetDpiForSystem());
+        return new Icon(stream, size, size);
+    }
 
     /// <summary>
     /// Native menu instead of a WPF ContextMenu: when the icon sits in the Windows 11 overflow flyout,
